@@ -1,38 +1,37 @@
 # TravelGo Backend
 
-Backend inicial del proyecto de billetera digital multi-moneda para el Proyecto Final de Henry.
+Backend del proyecto **TravelGo**, una billetera digital multi-moneda desarrollada para el Proyecto Final de Henry.
 
-El objetivo del backend es permitir la gestión de usuarios, wallets, balances por moneda, transacciones simuladas de compra/venta/intercambio y cache de tasas de cambio.
+El objetivo del backend es permitir la gestión de usuarios, wallets, balances por moneda, transacciones simuladas de compra, venta e intercambio de monedas, historial de operaciones y cache de tasas de cambio.
+
+Todas las operaciones son simuladas. No se utiliza dinero real.
 
 ## Estado actual del proyecto
 
-Hasta el momento se realizó la configuración inicial de la base de datos PostgreSQL y la conexión desde Node.js/TypeScript.
-
-### Avances completados
+Hasta el momento se configuró la base inicial del backend:
 
 * Base de datos PostgreSQL creada localmente.
 * Base llamada `travelgo`.
 * Archivo SQL de estructura creado en `src/migrations/schema.sql`.
-* Migración ejecutada correctamente sobre la base `travelgo`.
-* Tablas principales creadas:
-
-  * `users`
-  * `wallets`
-  * `balances`
-  * `transactions`
-  * `exchange_rates_cache`
-* Conexión entre Node.js y PostgreSQL validada correctamente.
+* Tablas principales creadas correctamente.
+* Conexión entre Node.js y PostgreSQL validada.
 * Variables de entorno configuradas mediante `.env`.
-* Script `db:check` creado para probar la conexión con la base de datos.
+* Script `db:check` creado para probar conexión con la base de datos.
+* Servidor Express configurado.
+* Endpoint `/api/health` funcionando.
+* Configuración de TypeScript agregada.
+* Build del backend validado correctamente.
 
-## Tecnologías actuales
+## Tecnologías utilizadas
 
 * Node.js
+* Express.js
 * TypeScript
 * PostgreSQL
 * pg
 * dotenv
 * tsx
+* cors
 
 ## Estructura actual
 
@@ -44,11 +43,18 @@ TravelGo-backend/
 │  ├─ db/
 │  │  ├─ pool.ts
 │  │  └─ checkConnection.ts
-│  └─ migrations/
-│     └─ schema.sql
-├─ .env
+│  ├─ middlewares/
+│  │  └─ error.middleware.ts
+│  ├─ migrations/
+│  │  └─ schema.sql
+│  ├─ utils/
+│  │  └─ AppError.ts
+│  ├─ app.ts
+│  └─ server.ts
+├─ .gitignore
 ├─ package.json
 ├─ package-lock.json
+├─ tsconfig.json
 └─ README.md
 ```
 
@@ -66,7 +72,7 @@ Para conectarse manualmente:
 psql -U postgres -d travelgo
 ```
 
-Para listar tablas dentro de PostgreSQL:
+Para listar las tablas dentro de PostgreSQL:
 
 ```sql
 \dt
@@ -82,6 +88,46 @@ users
 wallets
 ```
 
+## Tablas principales
+
+### `users`
+
+Guarda los datos principales de los usuarios registrados.
+
+### `wallets`
+
+Representa la billetera asociada a cada usuario.
+
+### `balances`
+
+Guarda el saldo disponible por moneda dentro de cada wallet.
+
+Monedas iniciales previstas:
+
+```txt
+ARS
+USD
+EUR
+BRL
+CLP
+```
+
+### `transactions`
+
+Registra las operaciones simuladas de compra, venta e intercambio de monedas.
+
+Tipos de transacción previstos:
+
+```txt
+BUY
+SELL
+EXCHANGE
+```
+
+### `exchange_rates_cache`
+
+Guarda tasas de cambio obtenidas desde una API externa para evitar consultas repetidas.
+
 ## Archivo de schema
 
 El archivo SQL principal está ubicado en:
@@ -92,13 +138,14 @@ src/migrations/schema.sql
 
 Este archivo crea:
 
-* Extensión `pgcrypto`
-* Tabla `users`
-* Tabla `wallets`
-* Tabla `balances`
-* Tabla `transactions`
-* Tabla `exchange_rates_cache`
-* Índices principales para mejorar consultas
+* Extensión `pgcrypto`.
+* Tabla `users`.
+* Tabla `wallets`.
+* Tabla `balances`.
+* Tabla `transactions`.
+* Tabla `exchange_rates_cache`.
+* Índices principales para mejorar consultas.
+* Constraints para validar monedas, montos y tipos de operación.
 
 ## Ejecutar el schema manualmente
 
@@ -143,7 +190,39 @@ JWT_EXPIRES_IN=1d
 
 Importante: reemplazar `TU_PASSWORD` por la contraseña real del usuario `postgres`.
 
+El archivo `.env` no debe subirse al repositorio.
+
 ## Scripts disponibles
+
+### Ejecutar servidor en modo desarrollo
+
+```bash
+npm run dev
+```
+
+Resultado esperado:
+
+```txt
+TravelGo corre en el puerto 3000
+```
+
+### Probar endpoint de salud
+
+Con el servidor levantado:
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+Respuesta esperada:
+
+```json
+{
+  "status": "ok",
+  "service": "TravelGo API",
+  "database": "connected"
+}
+```
 
 ### Probar conexión con PostgreSQL
 
@@ -158,9 +237,27 @@ Database connected successfully
 { current_time: ... }
 ```
 
+### Compilar TypeScript
+
+```bash
+npm run build
+```
+
+Si no hay errores, se genera la carpeta:
+
+```txt
+dist/
+```
+
+### Ejecutar versión compilada
+
+```bash
+npm start
+```
+
 ## Resultado actual validado
 
-La conexión fue probada correctamente con:
+La conexión con PostgreSQL fue probada correctamente con:
 
 ```bash
 npm run db:check
@@ -173,27 +270,65 @@ Database connected successfully
 { current_time: 2026-07-01T21:36:33.347Z }
 ```
 
-Esto confirma que:
+El endpoint de salud fue probado correctamente con:
 
-* PostgreSQL está funcionando.
-* La base `travelgo` existe.
-* El backend puede conectarse a la base usando `DATABASE_URL`.
-* La configuración de entorno está cargando correctamente.
+```bash
+curl http://localhost:3000/api/health
+```
+
+Resultado obtenido:
+
+```json
+{
+  "status": "ok",
+  "service": "TravelGo API",
+  "database": "connected"
+}
+```
+
+El build de TypeScript fue validado correctamente con:
+
+```bash
+npm run build
+```
+
+Y se generó la carpeta:
+
+```txt
+dist/
+```
 
 ## Dependencias actuales
 
 ```json
 {
   "dependencies": {
-    "dotenv": "^17.4.2",
-    "pg": "^8.22.0"
+    "cors": "...",
+    "dotenv": "...",
+    "express": "...",
+    "pg": "..."
   },
   "devDependencies": {
-    "@types/pg": "^8.20.0",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "@types/cors": "...",
+    "@types/express": "...",
+    "@types/node": "...",
+    "@types/pg": "...",
+    "tsx": "...",
+    "typescript": "..."
   }
 }
+```
+
+## Archivos ignorados por Git
+
+El proyecto ignora archivos sensibles o generados automáticamente:
+
+```gitignore
+node_modules
+dist
+.env
+coverage
+.DS_Store
 ```
 
 ## Próximos pasos
@@ -202,19 +337,21 @@ El siguiente paso del desarrollo será implementar el módulo de autenticación.
 
 Orden recomendado:
 
-1. Crear servidor Express básico.
-2. Crear endpoint `/api/health`.
-3. Crear módulo `auth`.
-4. Implementar `POST /api/auth/register`.
-5. Al registrar usuario:
+1. Crear módulo `auth`.
+2. Implementar `POST /api/auth/register`.
+3. Al registrar usuario:
 
    * Crear usuario en `users`.
    * Crear wallet en `wallets`.
    * Crear balances iniciales en `balances`.
-6. Implementar `POST /api/auth/login`.
-7. Generar JWT.
-8. Proteger rutas privadas.
-9. Crear endpoint para consultar balances.
+4. Implementar `POST /api/auth/login`.
+5. Generar JWT.
+6. Proteger rutas privadas.
+7. Crear endpoint para consultar balances.
+8. Implementar lógica de compra, venta e intercambio de monedas.
+9. Registrar historial de transacciones.
+10. Agregar cache de tasas de cambio.
+11. Integrar emails de confirmación.
 
 ## Flujo esperado del registro
 
