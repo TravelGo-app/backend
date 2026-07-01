@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { authRoutes } from "./modules/auth/auth.routes.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 
 export const app = express();
@@ -14,5 +15,7 @@ app.get("/api/health", (_req, res) => {
     database: "connected",
   });
 });
+
+app.use("/api/auth", authRoutes);
 
 app.use(errorMiddleware);
