@@ -16,4 +16,16 @@ export const registerSchema = z.object({
     .min(6, "La contraseña debe tener al menos 6 caracteres"),
 });
 
+export const loginSchema = z.object({
+  email: z
+    .string()
+    .email("Email inválido")
+    .max(150, "El email no puede superar los 150 caracteres"),
+
+  password: z
+    .string()
+    .min(6, "La contraseña debe tener al menos 6 caracteres"),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;

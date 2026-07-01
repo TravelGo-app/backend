@@ -25,6 +25,22 @@ export async function findUserByEmail(
   return result.rows[0] ?? null;
 }
 
+export async function findUserById(
+  client: PoolClient,
+  userId: string
+): Promise<UserRow | null> {
+  const result = await client.query<UserRow>(
+    `
+    SELECT id, name, email, password_hash, created_at, updated_at
+    FROM users
+    WHERE id = $1
+    `,
+    [userId]
+  );
+
+  return result.rows[0] ?? null;
+}
+
 export async function createUser(
   client: PoolClient,
   data: {
