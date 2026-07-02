@@ -387,3 +387,4 @@ Usuario se registra
 ```
 
 Una vez completado ese flujo, se avanzará con transacciones simuladas de compra, venta e intercambio de monedas.
+/api/health es un endpoint simple para verificar que el backend está vivo y respondiendo.
