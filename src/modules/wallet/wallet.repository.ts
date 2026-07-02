@@ -22,3 +22,19 @@ export async function createWallet(
 
   return result.rows[0];
 }
+
+export async function findWalletByUserId(
+  client: PoolClient,
+  userId: string
+): Promise<WalletRow | null> {
+  const result = await client.query<WalletRow>(
+    `
+    SELECT id, user_id, created_at, updated_at
+    FROM wallets
+    WHERE user_id = $1
+    `,
+    [userId]
+  );
+
+  return result.rows[0] ?? null;
+}
