@@ -16,7 +16,6 @@ export async function createInitialBalances(
   balances: Record<CurrencyCode, number>
 ): Promise<BalanceRow[]> {
   const entries = Object.entries(balances) as [CurrencyCode, number][];
-
   const createdBalances: BalanceRow[] = [];
 
   for (const [currencyCode, amount] of entries) {
@@ -24,7 +23,13 @@ export async function createInitialBalances(
       `
       INSERT INTO balances (wallet_id, currency_code, amount)
       VALUES ($1, $2, $3)
-      RETURNING id, wallet_id, currency_code, amount, created_at, updated_at
+      RETURNING
+        id,
+        wallet_id,
+        currency_code,
+        amount,
+        created_at,
+        updated_at
       `,
       [walletId, currencyCode, amount]
     );
@@ -33,4 +38,34 @@ export async function createInitialBalances(
   }
 
   return createdBalances;
+}
+
+export async function findBalancesByWalletId(
+  client: PoolClient,
+  walletId: string
+): Promise<BalanceRow[]> {
+  const result = await client.query<BalanceRow>(
+    `
+    SELECT
+      id,
+      wallet_id,
+      currency_code,
+      amount,
+      created_at,
+      updated_at
+    FROM balances
+    WHERE wallet_id = $1
+    ORDER BY CASE currency_code
+      WHEN 'ARS' THEN 1
+      WHEN 'USD' THEN 2
+      WHEN 'EUR' THEN 3
+      WHEN 'BRL' THEN 4
+      WHEN 'CLP' THEN 5
+      ELSE 6
+    END
+    `,
+    [walletId]
+  );
+
+  return result.rows;
 }
