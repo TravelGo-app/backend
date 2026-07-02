@@ -9,35 +9,54 @@ pool.on("error", (error) => {
   console.error("Error inesperado de PostgreSQL:", error);
 });
 
-function delay(milliseconds: number): Promise<void> {
+function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
 }
 
-export async function waitForDatabase(
-  maxAttempts = 10,
+export async function connectWithRetry(
+  retries = 20,
   delayMs = 3000
 ): Promise<void> {
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {
-      await pool.query("SELECT 1");
+      const client = await pool.connect();
 
-      console.log("PostgreSQL disponible");
-      return;
-    } catch (error) {
-      const databaseError = error as { code?: string; message?: string };
-
-      console.error(
-        `PostgreSQL no disponible. Intento ${attempt}/${maxAttempts}:`,
-        databaseError.code ?? databaseError.message
-      );
-
-      if (attempt === maxAttempts) {
-        throw error;
+      try {
+        await client.query("SELECT 1");
+      } finally {
+        client.release();
       }
 
-      await delay(delayMs);
+      console.log("Database connected successfully");
+      return;
+    } catch (error) {
+      lastError = error;
+
+      const databaseError = error as {
+        code?: string;
+        message?: string;
+      };
+
+      console.log(
+        `Database connection attempt ${attempt}/${retries} failed: ${
+          databaseError.code ?? databaseError.message ?? "unknown error"
+        }`
+      );
+
+      if (attempt < retries) {
+        console.log(`Retrying in ${delayMs}ms...`);
+        await wait(delayMs);
+      }
     }
   }
+
+  console.error("Último error de PostgreSQL:", lastError);
+
+  throw new Error(
+    "Could not connect to database after multiple attempts"
+  );
 }
