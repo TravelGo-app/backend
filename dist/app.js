@@ -3,6 +3,7 @@ import cors from "cors";
 import { pool } from "./db/pool.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { walletRoutes } from "./modules/wallet/wallet.routes.js";
+import { ratesRoutes } from "./modules/rates/rates.routes.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 export const app = express();
 app.use(cors());
@@ -33,4 +34,5 @@ app.get("/api/health", async (_req, res) => {
 });
 app.use("/api/auth", authRoutes);
 app.use("/api/wallet", walletRoutes);
+app.use("/api/rates", ratesRoutes);
 app.use(errorMiddleware);
