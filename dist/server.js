@@ -9,7 +9,7 @@ async function startServer() {
         });
     }
     catch (error) {
-        console.error("Failed to start server:", error);
+        console.error("Error al iniciar el servidor:", error);
         process.exit(1);
     }
 }
