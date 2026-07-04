@@ -1,8 +1,11 @@
-import { pool } from "../../db/pool.js";
 import { INITIAL_BALANCES } from "../../config/currencies.js";
+import { pool } from "../../db/pool.js";
 import { AppError } from "../../utils/AppError.js";
-import { comparePassword, hashPassword } from "../../utils/password.js";
 import { generateToken } from "../../utils/jwt.js";
+import {
+  comparePassword,
+  hashPassword,
+} from "../../utils/password.js";
 import { createInitialBalances } from "../balances/balances.repository.js";
 import { createWallet } from "../wallet/wallet.repository.js";
 import {
@@ -10,21 +13,34 @@ import {
   findUserByEmail,
   findUserById,
 } from "./auth.repository.js";
-import type { LoginInput, RegisterInput } from "./auth.schemas.js";
+import type {
+  LoginInput,
+  RegisterInput,
+} from "./auth.schemas.js";
 
-export async function registerUser(data: RegisterInput) {
+export async function registerUser(
+  data: RegisterInput
+) {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    const existingUser = await findUserByEmail(client, data.email);
+    const existingUser = await findUserByEmail(
+      client,
+      data.email
+    );
 
     if (existingUser) {
-      throw new AppError("El email ya está registrado", 409);
+      throw new AppError(
+        "El email ya está registrado",
+        409
+      );
     }
 
-    const passwordHash = await hashPassword(data.password);
+    const passwordHash = await hashPassword(
+      data.password
+    );
 
     const user = await createUser(client, {
       name: data.name,
@@ -32,7 +48,10 @@ export async function registerUser(data: RegisterInput) {
       passwordHash,
     });
 
-    const wallet = await createWallet(client, user.id);
+    const wallet = await createWallet(
+      client,
+      user.id
+    );
 
     const balances = await createInitialBalances(
       client,
@@ -52,6 +71,7 @@ export async function registerUser(data: RegisterInput) {
         id: user.id,
         name: user.name,
         email: user.email,
+        avatarUrl: user.avatar_url,
         createdAt: user.created_at,
       },
       wallet: {
@@ -71,23 +91,36 @@ export async function registerUser(data: RegisterInput) {
   }
 }
 
-export async function loginUser(data: LoginInput) {
+export async function loginUser(
+  data: LoginInput
+) {
   const client = await pool.connect();
 
   try {
-    const user = await findUserByEmail(client, data.email);
+    const user = await findUserByEmail(
+      client,
+      data.email
+    );
 
-    if (!user) {
-      throw new AppError("Credenciales inválidas", 401);
+    const passwordHash = user?.password_hash;
+
+    if (!user || !passwordHash) {
+      throw new AppError(
+        "Credenciales inválidas",
+        401
+      );
     }
 
     const passwordIsValid = await comparePassword(
       data.password,
-      user.password_hash
+      passwordHash
     );
 
     if (!passwordIsValid) {
-      throw new AppError("Credenciales inválidas", 401);
+      throw new AppError(
+        "Credenciales inválidas",
+        401
+      );
     }
 
     const token = generateToken({
@@ -100,6 +133,7 @@ export async function loginUser(data: LoginInput) {
         id: user.id,
         name: user.name,
         email: user.email,
+        avatarUrl: user.avatar_url,
         createdAt: user.created_at,
       },
       token,
@@ -109,20 +143,29 @@ export async function loginUser(data: LoginInput) {
   }
 }
 
-export async function getCurrentUser(userId: string) {
+export async function getCurrentUser(
+  userId: string
+) {
   const client = await pool.connect();
 
   try {
-    const user = await findUserById(client, userId);
+    const user = await findUserById(
+      client,
+      userId
+    );
 
     if (!user) {
-      throw new AppError("Usuario no encontrado", 404);
+      throw new AppError(
+        "Usuario no encontrado",
+        404
+      );
     }
 
     return {
       id: user.id,
       name: user.name,
       email: user.email,
+      avatarUrl: user.avatar_url,
       createdAt: user.created_at,
     };
   } finally {
