@@ -1,22 +1,19 @@
-import { SESClient, SendEmailCommand} from "@aws-sdk/client-ses";
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 
 import { env } from "../config/env.js";
-
-export type TransactionType =
-  | "BUY"
-  | "SELL"
-  | "EXCHANGE";
+import { TransactionType } from "../config/transactions.js";
+import type { CurrencyCode } from "../config/currencies.js";
 
 export type TransactionEmailInput = {
   toEmail: string;
   userName: string;
   type: TransactionType;
-  fromCurrency: string;
-  toCurrency: string;
+  fromCurrency: CurrencyCode;
+  toCurrency: CurrencyCode;
   fromAmount: number;
   toAmount: number;
   timestamp: string;
-  transactionId?: string;
+  transactionId: string;
 };
 
 export type EmailSendResult = {

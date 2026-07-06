@@ -2,7 +2,9 @@ import cors from "cors";
 import express from "express";
 import swaggerUi from "swagger-ui-express";
 
+import { env } from "./config/env.js";
 import { pool } from "./db/pool.js";
+import { googleLoginTestPage } from "./dev/google-login-test.page.js";
 import { openApiDocument } from "./docs/openapi.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
@@ -11,7 +13,22 @@ import { walletRoutes } from "./modules/wallet/wallet.routes.js";
 
 export const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const originAllowed =
+        env.frontendOrigins.includes(origin);
+
+      callback(null, originAllowed);
+    },
+  })
+);
+
 app.use(express.json());
 
 app.get("/", (_req, res) => {
@@ -58,6 +75,13 @@ app.use(
     customSiteTitle: "TravelGo API",
   })
 );
+
+if (env.nodeEnv !== "production") {
+  app.get(
+    "/dev/google-login",
+    googleLoginTestPage
+  );
+}
 
 app.use("/api/auth", authRoutes);
 app.use("/api/wallet", walletRoutes);
