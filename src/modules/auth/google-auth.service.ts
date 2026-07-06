@@ -188,11 +188,15 @@ export async function loginWithGoogle(
         name: user.name,
         email: user.email,
         avatarUrl: user.avatar_url,
+        hasPassword: user.password_hash !== null,
+        hasGoogle: user.google_id !== null,
         createdAt: user.created_at,
       },
       token,
       isNewUser,
       accountLinked,
+      requiresPasswordSetup:
+        user.password_hash === null,
     };
   } catch (error) {
     await client.query("ROLLBACK");

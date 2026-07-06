@@ -160,3 +160,24 @@ export async function linkGoogleAccount(
 
   return result.rows[0];
 }
+
+export async function setUserPassword(
+  client: PoolClient,
+  userId: string,
+  passwordHash: string
+): Promise<UserRow | null> {
+  const result = await client.query<UserRow>(
+    `
+    UPDATE users
+    SET
+      password_hash = $2,
+      updated_at = NOW()
+    WHERE id = $1
+      AND password_hash IS NULL
+    RETURNING ${USER_COLUMNS}
+    `,
+    [userId, passwordHash]
+  );
+
+  return result.rows[0] ?? null;
+}

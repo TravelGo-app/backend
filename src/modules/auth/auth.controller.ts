@@ -8,12 +8,14 @@ import {
   getCurrentUser,
   loginUser,
   registerUser,
+  setPasswordForUser,
 } from "./auth.service.js";
 import { loginWithGoogle } from "./google-auth.service.js";
 import {
   googleLoginSchema,
   loginSchema,
   registerSchema,
+  setPasswordSchema,
 } from "./auth.schemas.js";
 
 export async function registerController(
@@ -89,6 +91,39 @@ export async function googleLoginController(
   res.status(200).json({
     message:
       "Inicio de sesión con Google correcto",
+    ...result,
+  });
+}
+
+export async function setPasswordController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  if (!req.user) {
+    throw new AppError(
+      "Usuario no autenticado",
+      401
+    );
+  }
+
+  const parsedBody =
+    setPasswordSchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    const message =
+      parsedBody.error.issues[0]?.message ??
+      "Datos inválidos";
+
+    throw new AppError(message, 400);
+  }
+
+  const result = await setPasswordForUser(
+    req.user.userId,
+    parsedBody.data
+  );
+
+  res.status(200).json({
+    message: "Contraseña configurada correctamente",
     ...result,
   });
 }
