@@ -74,6 +74,16 @@ export const openApiDocument = {
             type: "string",
             nullable: true,
           },
+          hasPassword: {
+            type: "boolean",
+            description:
+              "Indica si la cuenta tiene acceso por email y contraseña",
+          },
+          hasGoogle: {
+            type: "boolean",
+            description:
+              "Indica si la cuenta está vinculada con Google",
+          },
           createdAt: {
             type: "string",
             format: "date-time",
@@ -254,6 +264,10 @@ export const openApiDocument = {
             description:
               "Credenciales inválidas",
           },
+          "409": {
+            description:
+              "La cuenta fue creada con Google y todavía no tiene contraseña",
+          },
         },
       },
     },
@@ -298,6 +312,60 @@ export const openApiDocument = {
           "503": {
             description:
               "Google Login no está configurado",
+          },
+        },
+      },
+    },
+
+    "/api/auth/set-password": {
+      post: {
+        tags: ["Auth"],
+        summary:
+          "Configurar contraseña para una cuenta autenticada",
+        description:
+          "Permite que una cuenta creada inicialmente con Google también pueda iniciar sesión con email y contraseña.",
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["password"],
+                properties: {
+                  password: {
+                    type: "string",
+                    format: "password",
+                    minLength: 6,
+                    maxLength: 72,
+                    example: "ClaveSegura123",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description:
+              "Contraseña configurada correctamente",
+          },
+          "400": {
+            description: "Contraseña inválida",
+          },
+          "401": {
+            description: "JWT ausente o inválido",
+          },
+          "404": {
+            description: "Usuario no encontrado",
+          },
+          "409": {
+            description:
+              "La cuenta ya tiene una contraseña configurada",
           },
         },
       },

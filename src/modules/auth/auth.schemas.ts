@@ -66,6 +66,19 @@ export const googleLoginSchema = z.object({
   ),
 });
 
+export const setPasswordSchema = z.object({
+  password: z
+    .string()
+    .min(
+      6,
+      "La contraseña debe tener al menos 6 caracteres"
+    )
+    .max(
+      72,
+      "La contraseña no puede superar los 72 caracteres"
+    ),
+});
+
 export type RegisterInput =
   z.infer<typeof registerSchema>;
 
@@ -74,3 +87,6 @@ export type LoginInput =
 
 export type GoogleLoginInput =
   z.infer<typeof googleLoginSchema>;
+
+export type SetPasswordInput =
+  z.infer<typeof setPasswordSchema>;

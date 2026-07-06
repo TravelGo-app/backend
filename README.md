@@ -1,4 +1,10 @@
 # TravelGo Backend
+## API desplegada
+
+- API pública: https://travelgo-njke.up.railway.app
+- Swagger UI: https://travelgo-njke.up.railway.app/api-docs
+- Healthcheck: https://travelgo-njke.up.railway.app/api/health
+- OpenAPI JSON: https://travelgo-njke.up.railway.app/api-docs.json
 
 Backend de **TravelGo**, una billetera digital multi-moneda desarrollada para el Proyecto Final de Henry.
 

@@ -12,10 +12,12 @@ import {
   createUser,
   findUserByEmail,
   findUserById,
+  setUserPassword,
 } from "./auth.repository.js";
 import type {
   LoginInput,
   RegisterInput,
+  SetPasswordInput,
 } from "./auth.schemas.js";
 
 export async function registerUser(
@@ -72,6 +74,8 @@ export async function registerUser(
         name: user.name,
         email: user.email,
         avatarUrl: user.avatar_url,
+        hasPassword: user.password_hash !== null,
+        hasGoogle: user.google_id !== null,
         createdAt: user.created_at,
       },
       wallet: {
@@ -102,12 +106,19 @@ export async function loginUser(
       data.email
     );
 
-    const passwordHash = user?.password_hash;
-
-    if (!user || !passwordHash) {
+    if (!user) {
       throw new AppError(
         "Credenciales inválidas",
         401
+      );
+    }
+
+    const passwordHash = user.password_hash;
+
+    if (!passwordHash) {
+      throw new AppError(
+        "Esta cuenta fue creada con Google. Iniciá sesión con Google y configurá una contraseña para usar el acceso tradicional.",
+        409
       );
     }
 
@@ -134,6 +145,8 @@ export async function loginUser(
         name: user.name,
         email: user.email,
         avatarUrl: user.avatar_url,
+        hasPassword: user.password_hash !== null,
+        hasGoogle: user.google_id !== null,
         createdAt: user.created_at,
       },
       token,
@@ -166,7 +179,68 @@ export async function getCurrentUser(
       name: user.name,
       email: user.email,
       avatarUrl: user.avatar_url,
+      hasPassword: user.password_hash !== null,
+      hasGoogle: user.google_id !== null,
       createdAt: user.created_at,
+    };
+  } finally {
+    client.release();
+  }
+}
+
+export async function setPasswordForUser(
+  userId: string,
+  data: SetPasswordInput
+) {
+  const client = await pool.connect();
+
+  try {
+    const user = await findUserById(
+      client,
+      userId
+    );
+
+    if (!user) {
+      throw new AppError(
+        "Usuario no encontrado",
+        404
+      );
+    }
+
+    if (user.password_hash) {
+      throw new AppError(
+        "La cuenta ya tiene una contraseña configurada",
+        409
+      );
+    }
+
+    const passwordHash = await hashPassword(
+      data.password
+    );
+
+    const updatedUser = await setUserPassword(
+      client,
+      user.id,
+      passwordHash
+    );
+
+    if (!updatedUser) {
+      throw new AppError(
+        "La cuenta ya tiene una contraseña configurada",
+        409
+      );
+    }
+
+    return {
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        avatarUrl: updatedUser.avatar_url,
+        hasPassword: true,
+        hasGoogle: updatedUser.google_id !== null,
+        createdAt: updatedUser.created_at,
+      },
     };
   } finally {
     client.release();
