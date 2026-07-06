@@ -1,5 +1,8 @@
 import "dotenv/config";
-import { readFile } from "node:fs/promises";
+import {
+  readdir,
+  readFile,
+} from "node:fs/promises";
 import pg from "pg";
 
 const { Pool } = pg;
@@ -7,7 +10,9 @@ const { Pool } = pg;
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error("La variable DATABASE_URL no está configurada");
+  throw new Error(
+    "La variable DATABASE_URL no está configurada"
+  );
 }
 
 const pool = new Pool({
@@ -28,53 +33,136 @@ const TRANSIENT_ERROR_CODES = new Set([
   "ETIMEDOUT",
 ]);
 
+const migrationsDirectory = new URL(
+  "../src/migrations/",
+  import.meta.url
+);
+
 function wait(milliseconds) {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
 }
 
-async function runMigrationWithRetry(
+function sortMigrationFiles(
+  firstFile,
+  secondFile
+) {
+  if (firstFile === "schema.sql") {
+    return -1;
+  }
+
+  if (secondFile === "schema.sql") {
+    return 1;
+  }
+
+  return firstFile.localeCompare(secondFile);
+}
+
+async function runMigrations() {
+  const migrationFiles = (
+    await readdir(migrationsDirectory)
+  )
+    .filter((fileName) =>
+      fileName.endsWith(".sql")
+    )
+    .sort(sortMigrationFiles);
+
+  if (migrationFiles.length === 0) {
+    throw new Error(
+      "No se encontraron migraciones SQL"
+    );
+  }
+
+  const client = await pool.connect();
+
+  try {
+    for (const fileName of migrationFiles) {
+      const migrationUrl = new URL(
+        fileName,
+        migrationsDirectory
+      );
+
+      const sql = await readFile(
+        migrationUrl,
+        "utf8"
+      );
+
+      console.log(
+        `Ejecutando migración: ${fileName}`
+      );
+
+      await client.query("BEGIN");
+
+      try {
+        await client.query(sql);
+        await client.query("COMMIT");
+
+        console.log(
+          `Migración completada: ${fileName}`
+        );
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
+    }
+  } finally {
+    client.release();
+  }
+}
+
+async function runMigrationsWithRetry(
   maxAttempts = 20,
   delayMs = 3000
 ) {
-  const schemaUrl = new URL(
-    "../src/migrations/schema.sql",
-    import.meta.url
-  );
-
-  const sql = await readFile(schemaUrl, "utf8");
   let lastError;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+  for (
+    let attempt = 1;
+    attempt <= maxAttempts;
+    attempt += 1
+  ) {
     try {
       await pool.query("SELECT 1");
 
-      console.log("PostgreSQL disponible para migración");
+      console.log(
+        "PostgreSQL disponible para migraciones"
+      );
 
-      await pool.query(sql);
+      await runMigrations();
 
-      console.log("Migración ejecutada correctamente");
+      console.log(
+        "Migraciones finalizadas correctamente"
+      );
+
       return;
     } catch (error) {
       lastError = error;
 
       const code = error?.code;
-      const message = error?.message ?? "Error desconocido";
+      const message =
+        error?.message ?? "Error desconocido";
 
       console.error(
-        `Intento de migración ${attempt}/${maxAttempts} falló:`,
+        `Intento ${attempt}/${maxAttempts} falló:`,
         code ?? message
       );
 
       const retryable =
-        !code || TRANSIENT_ERROR_CODES.has(code);
+        typeof code === "string" &&
+        TRANSIENT_ERROR_CODES.has(code);
 
-      if (!retryable || attempt === maxAttempts) {
+      if (
+        !retryable ||
+        attempt === maxAttempts
+      ) {
         throw error;
       }
 
-      console.log(`Reintentando en ${delayMs}ms...`);
+      console.log(
+        `Reintentando en ${delayMs}ms...`
+      );
+
       await wait(delayMs);
     }
   }
@@ -84,13 +172,17 @@ async function runMigrationWithRetry(
 
 async function main() {
   try {
-    await runMigrationWithRetry();
+    await runMigrationsWithRetry();
   } finally {
     await pool.end();
   }
 }
 
 main().catch((error) => {
-  console.error("Error definitivo ejecutando migración:", error);
+  console.error(
+    "Error definitivo ejecutando migraciones:",
+    error
+  );
+
   process.exit(1);
 });

@@ -2,18 +2,70 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"];
+function getEnv(name: string): string {
+  return process.env[name]?.trim() ?? "";
+}
 
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    throw new Error(`Missing environment variable: ${envVar}`);
+function requireEnv(name: string): string {
+  const value = getEnv(name);
+
+  if (!value) {
+    throw new Error(
+      `Missing environment variable: ${name}`
+    );
   }
+
+  return value;
+}
+
+const nodeEnv =
+  getEnv("NODE_ENV") || "development";
+
+const emailEnabled =
+  getEnv("EMAIL_ENABLED") === "true";
+
+const googleAuthEnabled =
+  getEnv("GOOGLE_AUTH_ENABLED") === "true";
+
+const frontendOrigins = getEnv(
+  "FRONTEND_ORIGINS"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const databaseUrl =
+  requireEnv("DATABASE_URL");
+
+const jwtSecret =
+  requireEnv("JWT_SECRET");
+
+if (emailEnabled) {
+  requireEnv("AWS_REGION");
+  requireEnv("AWS_SES_FROM_EMAIL");
+}
+
+if (googleAuthEnabled) {
+  requireEnv("GOOGLE_CLIENT_ID");
 }
 
 export const env = {
-  port: Number(process.env.PORT) || 3000,
-  nodeEnv: process.env.NODE_ENV || "development",
-  databaseUrl: process.env.DATABASE_URL as string,
-  jwtSecret: process.env.JWT_SECRET as string,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "1d",
+  port: Number(getEnv("PORT")) || 3000,
+  nodeEnv,
+  databaseUrl,
+  jwtSecret,
+  jwtExpiresIn:
+    getEnv("JWT_EXPIRES_IN") || "1d",
+
+  frontendOrigins,
+
+  googleAuthEnabled,
+  googleClientId:
+    getEnv("GOOGLE_CLIENT_ID"),
+
+  emailEnabled,
+  awsRegion:
+    getEnv("AWS_REGION"),
+  awsSesFromEmail:
+    getEnv("AWS_SES_FROM_EMAIL"),
 };
