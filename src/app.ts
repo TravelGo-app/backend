@@ -9,6 +9,7 @@ import { openApiDocument } from "./docs/openapi.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { ratesRoutes } from "./modules/rates/rates.routes.js";
+import { transactionsRoutes } from "./modules/transactions/transactions.routes.js";
 import { walletRoutes } from "./modules/wallet/wallet.routes.js";
 
 export const app = express();
@@ -86,5 +87,6 @@ if (env.nodeEnv !== "production") {
 app.use("/api/auth", authRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/rates", ratesRoutes);
+app.use("/api/transactions", transactionsRoutes);
 
 app.use(errorMiddleware);
