@@ -32,6 +32,11 @@ export const openApiDocument = {
       name: "Rates",
       description: "Tasas públicas de cambio",
     },
+    {
+      name: "Transactions",
+      description:
+        "Depósitos, transferencias e intercambios simulados",
+    },
   ],
 
   components: {
@@ -416,6 +421,231 @@ export const openApiDocument = {
           "404": {
             description:
               "Wallet no encontrada",
+          },
+        },
+      },
+    },
+
+    "/api/transactions/deposit": {
+      post: {
+        tags: ["Transactions"],
+        summary: "Realizar un depósito simulado",
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: [
+                  "currencyCode",
+                  "amount",
+                  "idempotencyKey",
+                ],
+                properties: {
+                  currencyCode: {
+                    type: "string",
+                    enum: [
+                      "ARS",
+                      "USD",
+                      "EUR",
+                      "BRL",
+                      "CLP",
+                    ],
+                  },
+                  amount: {
+                    type: "string",
+                    example: "10000.00",
+                  },
+                  idempotencyKey: {
+                    type: "string",
+                    example:
+                      "deposit-550e8400-e29b-41d4-a716-446655440000",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Depósito procesado",
+          },
+          "200": {
+            description:
+              "Reintento idempotente de un depósito ya procesado",
+          },
+          "400": {
+            description: "Datos inválidos",
+          },
+          "401": {
+            description: "JWT ausente o inválido",
+          },
+          "409": {
+            description: "Conflicto de operación",
+          },
+        },
+      },
+    },
+
+    "/api/transactions/transfer": {
+      post: {
+        tags: ["Transactions"],
+        summary: "Transferir fondos a otro usuario",
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: [
+                  "recipientEmail",
+                  "currencyCode",
+                  "amount",
+                  "idempotencyKey",
+                ],
+                properties: {
+                  recipientEmail: {
+                    type: "string",
+                    format: "email",
+                    example: "destinatario@ejemplo.com",
+                  },
+                  currencyCode: {
+                    type: "string",
+                    enum: [
+                      "ARS",
+                      "USD",
+                      "EUR",
+                      "BRL",
+                      "CLP",
+                    ],
+                  },
+                  amount: {
+                    type: "string",
+                    example: "2500.00",
+                  },
+                  idempotencyKey: {
+                    type: "string",
+                    example:
+                      "transfer-550e8400-e29b-41d4-a716-446655440000",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Transferencia procesada",
+          },
+          "200": {
+            description:
+              "Reintento idempotente de una transferencia ya procesada",
+          },
+          "400": {
+            description: "Datos inválidos",
+          },
+          "401": {
+            description: "JWT ausente o inválido",
+          },
+          "404": {
+            description: "Destinatario no encontrado",
+          },
+          "409": {
+            description:
+              "Saldo insuficiente o conflicto de operación",
+          },
+        },
+      },
+    },
+
+    "/api/transactions/exchange": {
+      post: {
+        tags: ["Transactions"],
+        summary: "Intercambiar monedas dentro de la wallet",
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: [
+                  "fromCurrency",
+                  "toCurrency",
+                  "amount",
+                  "idempotencyKey",
+                ],
+                properties: {
+                  fromCurrency: {
+                    type: "string",
+                    enum: [
+                      "ARS",
+                      "USD",
+                      "EUR",
+                      "BRL",
+                      "CLP",
+                    ],
+                  },
+                  toCurrency: {
+                    type: "string",
+                    enum: [
+                      "ARS",
+                      "USD",
+                      "EUR",
+                      "BRL",
+                      "CLP",
+                    ],
+                  },
+                  amount: {
+                    type: "string",
+                    example: "50000.00",
+                  },
+                  idempotencyKey: {
+                    type: "string",
+                    example:
+                      "exchange-550e8400-e29b-41d4-a716-446655440000",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Intercambio procesado",
+          },
+          "200": {
+            description:
+              "Reintento idempotente de un intercambio ya procesado",
+          },
+          "400": {
+            description:
+              "Datos o par de monedas inválidos",
+          },
+          "401": {
+            description: "JWT ausente o inválido",
+          },
+          "409": {
+            description:
+              "Saldo insuficiente o conflicto de operación",
+          },
+          "502": {
+            description:
+              "No se pudo obtener la tasa de cambio",
           },
         },
       },
