@@ -150,7 +150,8 @@ export async function sendTransactionEmail(
     `Fecha: ${input.timestamp}`,
     `Operación: ${input.transactionId ?? "No disponible"}`,
     "",
-    "Saludos, El equipo de TravelGo.",
+    "Saludos, ",
+    "El equipo de TravelGo.",
   ].join("\n");
 
   const command = new SendEmailCommand({
