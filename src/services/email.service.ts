@@ -16,6 +16,13 @@ export type TransactionEmailInput = {
   transactionId: string;
 };
 
+export type PasswordResetEmailInput = {
+  toEmail: string;
+  userName: string;
+  resetUrl: string;
+  expiresInMinutes: number;
+};
+
 export type EmailSendResult = {
   sent: boolean;
   messageId: string | null;
@@ -58,7 +65,7 @@ function escapeHtml(value: string): string {
 }
 
 function formatAmount(amount: number): string {
-  if (!Number.isFinite(amount) || amount < 0) { 
+  if (!Number.isFinite(amount) || amount < 0) {
     throw new Error(
       "El monto del email no es válido"
     );
@@ -142,6 +149,102 @@ export async function sendTransactionEmail(
     `Hacia: ${toAmount} ${input.toCurrency}`,
     `Fecha: ${input.timestamp}`,
     `Operación: ${input.transactionId ?? "No disponible"}`,
+    "",
+    "Gracias por usar TravelGo.",
+  ].join("\n");
+
+  const command = new SendEmailCommand({
+    Source: env.awsSesFromEmail,
+    Destination: {
+      ToAddresses: [toEmail],
+    },
+    Message: {
+      Subject: {
+        Charset: "UTF-8",
+        Data: subject,
+      },
+      Body: {
+        Html: {
+          Charset: "UTF-8",
+          Data: htmlBody,
+        },
+        Text: {
+          Charset: "UTF-8",
+          Data: textBody,
+        },
+      },
+    },
+  });
+
+  const response = await getSesClient().send(
+    command
+  );
+
+  return {
+    sent: true,
+    messageId: response.MessageId ?? null,
+  };
+}
+
+export async function sendPasswordResetEmail(
+  input: PasswordResetEmailInput
+): Promise<EmailSendResult> {
+  if (!env.emailEnabled) {
+    return {
+      sent: false,
+      messageId: null,
+      reason: "El envío de emails está deshabilitado",
+    };
+  }
+
+  assertEmailConfiguration();
+
+  const toEmail = input.toEmail
+    .trim()
+    .toLowerCase();
+
+  if (!toEmail) {
+    throw new Error(
+      "El destinatario del email es obligatorio"
+    );
+  }
+
+  const safeUserName = escapeHtml(
+    input.userName.trim() || "Usuario"
+  );
+  const safeResetUrl = escapeHtml(
+    input.resetUrl
+  );
+  const expiresInMinutes =
+    Number.isFinite(input.expiresInMinutes) &&
+    input.expiresInMinutes > 0
+      ? Math.floor(input.expiresInMinutes)
+      : 60;
+
+  const subject =
+    "TravelGo - Recuperación de contraseña";
+
+  const htmlBody = `
+    <h2>Hola ${safeUserName},</h2>
+    <p>Recibimos una solicitud para restablecer tu contraseña de TravelGo.</p>
+    <p>Para crear una nueva contraseña, abrí este enlace:</p>
+    <p><a href="${safeResetUrl}">Restablecer contraseña</a></p>
+    <p>Este enlace vence en ${expiresInMinutes} minutos.</p>
+    <p>Si no pediste este cambio, podés ignorar este email.</p>
+    <p>Gracias por usar TravelGo.</p>
+  `;
+
+  const textBody = [
+    `Hola ${input.userName.trim() || "Usuario"},`,
+    "",
+    "Recibimos una solicitud para restablecer tu contraseña de TravelGo.",
+    "",
+    "Abrí este enlace para crear una nueva contraseña:",
+    input.resetUrl,
+    "",
+    `Este enlace vence en ${expiresInMinutes} minutos.`,
+    "",
+    "Si no pediste este cambio, podés ignorar este email.",
     "",
     "Gracias por usar TravelGo.",
   ].join("\n");

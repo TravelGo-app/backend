@@ -181,3 +181,23 @@ export async function setUserPassword(
 
   return result.rows[0] ?? null;
 }
+
+export async function updateUserPassword(
+  client: PoolClient,
+  userId: string,
+  passwordHash: string
+): Promise<UserRow | null> {
+  const result = await client.query<UserRow>(
+    `
+    UPDATE users
+    SET
+      password_hash = $2,
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING ${USER_COLUMNS}
+    `,
+    [userId, passwordHash]
+  );
+
+  return result.rows[0] ?? null;
+}

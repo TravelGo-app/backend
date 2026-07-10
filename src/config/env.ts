@@ -34,6 +34,11 @@ const frontendOrigins = getEnv(
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const frontendUrl =
+  getEnv("FRONTEND_URL") ||
+  frontendOrigins[0] ||
+  "http://localhost:5173";
+
 const databaseUrl =
   requireEnv("DATABASE_URL");
 
@@ -58,6 +63,7 @@ export const env = {
     getEnv("JWT_EXPIRES_IN") || "1d",
 
   frontendOrigins,
+  frontendUrl,
 
   googleAuthEnabled,
   googleClientId:

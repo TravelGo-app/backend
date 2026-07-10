@@ -3,10 +3,12 @@ import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import {
+  forgotPasswordController,
   googleLoginController,
   loginController,
   meController,
   registerController,
+  resetPasswordController,
   setPasswordController,
 } from "./auth.controller.js";
 
@@ -25,6 +27,16 @@ authRoutes.post(
 authRoutes.post(
   "/google",
   asyncHandler(googleLoginController)
+);
+
+authRoutes.post(
+  "/forgot-password",
+  asyncHandler(forgotPasswordController)
+);
+
+authRoutes.post(
+  "/reset-password",
+  asyncHandler(resetPasswordController)
 );
 
 authRoutes.post(

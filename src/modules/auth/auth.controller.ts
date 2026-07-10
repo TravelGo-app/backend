@@ -8,13 +8,17 @@ import {
   getCurrentUser,
   loginUser,
   registerUser,
+  requestPasswordReset,
+  resetPasswordWithToken,
   setPasswordForUser,
 } from "./auth.service.js";
 import { loginWithGoogle } from "./google-auth.service.js";
 import {
+  forgotPasswordSchema,
   googleLoginSchema,
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
   setPasswordSchema,
 } from "./auth.schemas.js";
 
@@ -91,6 +95,58 @@ export async function googleLoginController(
   res.status(200).json({
     message:
       "Inicio de sesión con Google correcto",
+    ...result,
+  });
+}
+
+export async function forgotPasswordController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const parsedBody =
+    forgotPasswordSchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    const message =
+      parsedBody.error.issues[0]?.message ??
+      "Datos inválidos";
+
+    throw new AppError(message, 400);
+  }
+
+  await requestPasswordReset(
+    parsedBody.data
+  );
+
+  res.status(200).json({
+    message:
+      "Si el email existe, enviaremos instrucciones para recuperar la contraseña.",
+  });
+}
+
+export async function resetPasswordController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const parsedBody =
+    resetPasswordSchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    const message =
+      parsedBody.error.issues[0]?.message ??
+      "Datos inválidos";
+
+    throw new AppError(message, 400);
+  }
+
+  const result =
+    await resetPasswordWithToken(
+      parsedBody.data
+    );
+
+  res.status(200).json({
+    message:
+      "Contraseña actualizada correctamente",
     ...result,
   });
 }
