@@ -322,6 +322,87 @@ export const openApiDocument = {
       },
     },
 
+
+    "/api/auth/forgot-password": {
+      post: {
+        tags: ["Auth"],
+        summary:
+          "Solicitar email para recuperar contraseña",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email"],
+                properties: {
+                  email: {
+                    type: "string",
+                    format: "email",
+                    example: "usuario@ejemplo.com",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description:
+              "Solicitud procesada sin revelar si el email existe",
+          },
+          "400": {
+            description: "Datos inválidos",
+          },
+        },
+      },
+    },
+
+    "/api/auth/reset-password": {
+      post: {
+        tags: ["Auth"],
+        summary:
+          "Restablecer contraseña usando token de recuperación",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["token", "password"],
+                properties: {
+                  token: {
+                    type: "string",
+                    description:
+                      "Token recibido por email",
+                    example:
+                      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                  },
+                  password: {
+                    type: "string",
+                    format: "password",
+                    minLength: 6,
+                    maxLength: 72,
+                    example: "NuevaClave123",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description:
+              "Contraseña actualizada correctamente",
+          },
+          "400": {
+            description:
+              "Token inválido, vencido o datos inválidos",
+          },
+        },
+      },
+    },
+
     "/api/auth/set-password": {
       post: {
         tags: ["Auth"],

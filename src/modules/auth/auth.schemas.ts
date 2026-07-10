@@ -66,6 +66,39 @@ export const googleLoginSchema = z.object({
   ),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Email inválido")
+    .max(
+      150,
+      "El email no puede superar los 150 caracteres"
+    ),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .regex(
+      /^[a-fA-F0-9]{64}$/,
+      "Token inválido"
+    ),
+
+  password: z
+    .string()
+    .min(
+      6,
+      "La contraseña debe tener al menos 6 caracteres"
+    )
+    .max(
+      72,
+      "La contraseña no puede superar los 72 caracteres"
+    ),
+});
+
 export const setPasswordSchema = z.object({
   password: z
     .string()
@@ -87,6 +120,12 @@ export type LoginInput =
 
 export type GoogleLoginInput =
   z.infer<typeof googleLoginSchema>;
+
+export type ForgotPasswordInput =
+  z.infer<typeof forgotPasswordSchema>;
+
+export type ResetPasswordInput =
+  z.infer<typeof resetPasswordSchema>;
 
 export type SetPasswordInput =
   z.infer<typeof setPasswordSchema>;

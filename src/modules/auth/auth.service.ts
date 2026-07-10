@@ -1,5 +1,9 @@
+import { createHash, randomBytes } from "node:crypto";
+
 import { INITIAL_BALANCES } from "../../config/currencies.js";
+import { env } from "../../config/env.js";
 import { pool } from "../../db/pool.js";
+import { sendPasswordResetEmail } from "../../services/email.service.js";
 import { AppError } from "../../utils/AppError.js";
 import { generateToken } from "../../utils/jwt.js";
 import {
@@ -13,12 +17,61 @@ import {
   findUserByEmail,
   findUserById,
   setUserPassword,
+  updateUserPassword,
 } from "./auth.repository.js";
+import {
+  createPasswordResetToken,
+  findValidPasswordResetToken,
+  invalidateUserPasswordResetTokens,
+  markPasswordResetTokenUsed,
+} from "./password-reset.repository.js";
 import type {
+  ForgotPasswordInput,
   LoginInput,
   RegisterInput,
+  ResetPasswordInput,
   SetPasswordInput,
 } from "./auth.schemas.js";
+
+const PASSWORD_RESET_TOKEN_BYTES = 32;
+const PASSWORD_RESET_EXPIRATION_MINUTES = 60;
+
+function mapUser(user: {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url: string | null;
+  password_hash: string | null;
+  google_id: string | null;
+  created_at: Date;
+}) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatarUrl: user.avatar_url,
+    hasPassword: user.password_hash !== null,
+    hasGoogle: user.google_id !== null,
+    createdAt: user.created_at,
+  };
+}
+
+function hashPasswordResetToken(
+  token: string
+): string {
+  return createHash("sha256")
+    .update(token)
+    .digest("hex");
+}
+
+function buildPasswordResetUrl(
+  token: string
+): string {
+  const frontendUrl =
+    env.frontendUrl.replace(/\/+$/, "");
+
+  return `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+}
 
 export async function registerUser(
   data: RegisterInput
@@ -69,15 +122,7 @@ export async function registerUser(
     await client.query("COMMIT");
 
     return {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        avatarUrl: user.avatar_url,
-        hasPassword: user.password_hash !== null,
-        hasGoogle: user.google_id !== null,
-        createdAt: user.created_at,
-      },
+      user: mapUser(user),
       wallet: {
         id: wallet.id,
       },
@@ -140,15 +185,7 @@ export async function loginUser(
     });
 
     return {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        avatarUrl: user.avatar_url,
-        hasPassword: user.password_hash !== null,
-        hasGoogle: user.google_id !== null,
-        createdAt: user.created_at,
-      },
+      user: mapUser(user),
       token,
     };
   } finally {
@@ -174,15 +211,7 @@ export async function getCurrentUser(
       );
     }
 
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatarUrl: user.avatar_url,
-      hasPassword: user.password_hash !== null,
-      hasGoogle: user.google_id !== null,
-      createdAt: user.created_at,
-    };
+    return mapUser(user);
   } finally {
     client.release();
   }
@@ -232,16 +261,144 @@ export async function setPasswordForUser(
     }
 
     return {
-      user: {
-        id: updatedUser.id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        avatarUrl: updatedUser.avatar_url,
-        hasPassword: true,
-        hasGoogle: updatedUser.google_id !== null,
-        createdAt: updatedUser.created_at,
-      },
+      user: mapUser(updatedUser),
     };
+  } finally {
+    client.release();
+  }
+}
+
+export async function requestPasswordReset(
+  data: ForgotPasswordInput
+) {
+  const client = await pool.connect();
+  let transactionStarted = false;
+
+  try {
+    const user = await findUserByEmail(
+      client,
+      data.email
+    );
+
+    if (!user) {
+      return {
+        requested: true,
+      };
+    }
+
+    const rawToken = randomBytes(
+      PASSWORD_RESET_TOKEN_BYTES
+    ).toString("hex");
+
+    const tokenHash =
+      hashPasswordResetToken(rawToken);
+
+    const expiresAt = new Date(
+      Date.now() +
+        PASSWORD_RESET_EXPIRATION_MINUTES *
+          60 *
+          1000
+    );
+
+    await client.query("BEGIN");
+    transactionStarted = true;
+
+    await invalidateUserPasswordResetTokens(
+      client,
+      user.id
+    );
+
+    await createPasswordResetToken(client, {
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    });
+
+    await client.query("COMMIT");
+    transactionStarted = false;
+
+    await sendPasswordResetEmail({
+      toEmail: user.email,
+      userName: user.name,
+      resetUrl: buildPasswordResetUrl(rawToken),
+      expiresInMinutes:
+        PASSWORD_RESET_EXPIRATION_MINUTES,
+    });
+
+    return {
+      requested: true,
+    };
+  } catch (error) {
+    if (transactionStarted) {
+      await client.query("ROLLBACK");
+    }
+
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function resetPasswordWithToken(
+  data: ResetPasswordInput
+) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const tokenHash =
+      hashPasswordResetToken(data.token);
+
+    const resetToken =
+      await findValidPasswordResetToken(
+        client,
+        tokenHash
+      );
+
+    if (!resetToken) {
+      throw new AppError(
+        "El token es inválido o está vencido",
+        400
+      );
+    }
+
+    const passwordHash = await hashPassword(
+      data.password
+    );
+
+    const updatedUser =
+      await updateUserPassword(
+        client,
+        resetToken.user_id,
+        passwordHash
+      );
+
+    if (!updatedUser) {
+      throw new AppError(
+        "Usuario no encontrado",
+        404
+      );
+    }
+
+    await markPasswordResetTokenUsed(
+      client,
+      resetToken.id
+    );
+
+    await invalidateUserPasswordResetTokens(
+      client,
+      resetToken.user_id
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      user: mapUser(updatedUser),
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
   } finally {
     client.release();
   }
