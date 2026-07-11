@@ -157,6 +157,58 @@ export const openApiDocument = {
   },
 
   paths: {
+
+    "/api/chat": {
+      post: {
+        tags: ["Chat"],
+        summary: "Enviar mensaje al asistente de TravelGo",
+        description:
+          "Mantiene contexto por sessionId en memoria del servidor durante 20 minutos. No persiste historial en base de datos.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["sessionId", "message"],
+                properties: {
+                  sessionId: {
+                    type: "string",
+                    example: "chat-550e8400-e29b-41d4-a716-446655440000",
+                  },
+                  message: {
+                    type: "string",
+                    example: "¿Cómo hago una transferencia en TravelGo?",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Respuesta generada por Gemini",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    reply: {
+                      type: "string",
+                      example: "Para hacer una transferencia en TravelGo, ingresá a la sección de transferencias...",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "sessionId o message inválidos" },
+          "500": { description: "Gemini no configurado o error al generar respuesta" },
+        },
+      },
+    },
+
+
     "/api/health": {
       get: {
         tags: ["Health"],

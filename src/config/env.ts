@@ -39,6 +39,13 @@ const frontendUrl =
   frontendOrigins[0] ||
   "http://localhost:5173";
 
+const geminiApiKey =
+  getEnv("GEMINI_API_KEY");
+
+const geminiModel =
+  getEnv("GEMINI_MODEL") ||
+  "gemini-1.5-flash";
+
 const databaseUrl =
   requireEnv("DATABASE_URL");
 
@@ -68,6 +75,9 @@ export const env = {
   googleAuthEnabled,
   googleClientId:
     getEnv("GOOGLE_CLIENT_ID"),
+
+  geminiApiKey,
+  geminiModel,
 
   emailEnabled,
   awsRegion:

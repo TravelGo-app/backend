@@ -1,3 +1,4 @@
+import { chatRoutes } from "./modules/chat/chat.routes.js";
 import cors from "cors";
 import express from "express";
 import swaggerUi from "swagger-ui-express";
@@ -89,4 +90,5 @@ app.use("/api/wallet", walletRoutes);
 app.use("/api/rates", ratesRoutes);
 app.use("/api/transactions", transactionsRoutes);
 
+app.use("/api/chat", chatRoutes);
 app.use(errorMiddleware);
