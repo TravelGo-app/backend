@@ -55,64 +55,97 @@ La API permite registrar usuarios, iniciar sesión con email y contraseña o con
 
 ```txt
 TravelGo-backend/
-├── scripts/                              # Scripts ejecutados fuera de src
-│   └── migrate.mjs                       # Ejecuta schema.sql y las migraciones numeradas en orden
+├── scripts/                               # Scripts ejecutados fuera de src
+│   └── migrate.mjs                        # Ejecuta schema.sql y migraciones numeradas en orden
 │
-├── src/                                  # Código fuente principal en TypeScript
-│   ├── config/                           # Configuración y reglas compartidas del sistema
-│   │   ├── currencies.ts                 # Monedas soportadas por TravelGo
-│   │   ├── env.ts                        # Lectura y validación de variables de entorno
-│   │   └── transactions.ts               # Tipos de transacción permitidos: BUY, SELL y EXCHANGE
+├── src/                                   # Código fuente principal en TypeScript
+│   ├── config/                            # Configuración y reglas compartidas
+│   │   ├── currencies.ts                  # Monedas soportadas: ARS, USD, EUR, BRL y CLP
+│   │   ├── env.ts                         # Lectura/validación de variables de entorno y feature flags
+│   │   └── transactions.ts                # Tipos y reglas base de operaciones financieras simuladas
 │   │
-│   ├── db/                               # Acceso y conexión con PostgreSQL
-│   │   ├── checkConnection.ts            # Comprueba que PostgreSQL esté disponible
-│   │   └── pool.ts                       # Pool de conexiones utilizado por toda la aplicación
+│   ├── db/                                # Acceso a PostgreSQL
+│   │   ├── checkConnection.ts             # Verifica disponibilidad de PostgreSQL antes de iniciar
+│   │   └── pool.ts                        # Pool global de conexiones utilizado por repositorios
 │   │
-│   ├── dev/                              # Herramientas temporales disponibles solo en desarrollo
-│   │   └── google-login-test.page.ts     # Página local para probar Google Login y rutas protegidas
+│   ├── dev/                               # Herramientas disponibles solo en desarrollo
+│   │   └── google-login-test.page.ts      # Página local para probar Google Login y rutas protegidas
 │   │
-│   ├── docs/                             # Documentación técnica de la API
-│   │   └── openapi.ts                    # Documento OpenAPI utilizado por Swagger
+│   ├── docs/                              # Documentación técnica de la API
+│   │   └── openapi.ts                     # Documento OpenAPI 3.0.3 usado por Swagger UI
 │   │
-│   ├── middlewares/                      # Middlewares globales de Express
-│   │   ├── auth.middleware.ts            # Valida el JWT y agrega el usuario autenticado al Request
-│   │   └── error.middleware.ts           # Manejo centralizado de errores HTTP
+│   ├── middlewares/                       # Middlewares globales de Express
+│   │   ├── auth.middleware.ts             # Valida JWT y agrega req.user
+│   │   └── error.middleware.ts            # Manejo centralizado de errores HTTP
 │   │
-│   ├── migrations/                       # Definiciones y cambios incrementales de la base de datos
-│   │   ├── schema.sql                    # Esquema base de TravelGo
-│   │   └── 002_google_auth.sql           # Agrega google_id, avatar_url y soporte de cuentas Google
+│   ├── migrations/                        # Esquema base y cambios incrementales idempotentes
+│   │   ├── schema.sql                     # Esquema base: users, wallets, balances, transactions, rates cache
+│   │   ├── 002_google_auth.sql            # Soporte Google Login: google_id, avatar_url y password nullable
+│   │   ├── 003_transactions_operations.sql # Ajustes para depósitos, transferencias, exchanges e idempotencia
+│   │   └── 004_auth_password_reset_tokens.sql # Tokens hasheados para recuperación de contraseña
 │   │
-│   ├── modules/                          # Funcionalidades organizadas por dominio
-│   │   ├── auth/                         # Registro, login, Google Login, JWT y usuario autenticado
-│   │   ├── balances/                     # Creación y acceso a balances por moneda
-│   │   ├── rates/                        # Consulta y cache de tasas de cambio
-│   │   └── wallet/                       # Creación de wallet y consulta de balances
+│   ├── modules/                           # Funcionalidades agrupadas por dominio
+│   │   ├── auth/                          # Registro, login, Google Login, JWT y recuperación de contraseña
+│   │   │   ├── auth.controller.ts         # Controladores HTTP de autenticación
+│   │   │   ├── auth.repository.ts         # Consultas SQL de usuarios y credenciales
+│   │   │   ├── auth.routes.ts             # Rutas /api/auth/*
+│   │   │   ├── auth.schemas.ts            # Validaciones Zod de auth
+│   │   │   ├── auth.service.ts            # Lógica de negocio de autenticación
+│   │   │   └── password-reset.repository.ts # Persistencia de tokens de recuperación
+│   │   │
+│   │   ├── balances/                      # Creación y acceso a balances por moneda
+│   │   │
+│   │   ├── chat/                          # Chatbot TravelGo con Gemini
+│   │   │   ├── chat.controller.ts         # Controlador POST /api/chat
+│   │   │   ├── chat.memory.ts             # Historial temporal en memoria con TTL de 20 minutos
+│   │   │   ├── chat.routes.ts             # Rutas del chatbot
+│   │   │   ├── chat.schemas.ts            # Validación de sessionId y message
+│   │   │   └── chat.service.ts            # Lógica de llamada a Gemini y system prompt TravelGo-only
+│   │   │
+│   │   ├── rates/                         # Consulta pública de tasas y cache en PostgreSQL
+│   │   │   ├── rates.controller.ts        # Controladores de tasas
+│   │   │   ├── rates.provider.ts          # Cliente del proveedor externo de tasas
+│   │   │   ├── rates.repository.ts        # Cache de tasas en PostgreSQL
+│   │   │   ├── rates.routes.ts            # Rutas /api/rates
+│   │   │   └── rates.service.ts           # Normalización y estrategia de cache
+│   │   │
+│   │   ├── transactions/                  # Operaciones simuladas y actividad reciente
+│   │   │   ├── transactions.controller.ts # Controladores deposit, transfer, exchange y recent
+│   │   │   ├── transactions.repository.ts # Queries SQL, locks, balances y lectura de historial
+│   │   │   ├── transactions.routes.ts     # Rutas /api/transactions/*
+│   │   │   ├── transactions.schemas.ts    # Validaciones Zod de operaciones y query limit
+│   │   │   └── transactions.service.ts    # Lógica transaccional, idempotencia y normalización
+│   │   │
+│   │   └── wallet/                        # Creación de wallet y consulta de balances
+│   │       ├── wallet.controller.ts       # Controlador de wallet/balances
+│   │       ├── wallet.repository.ts       # Consultas SQL de wallets y balances
+│   │       ├── wallet.routes.ts           # Ruta protegida /api/wallet/balances
+│   │       └── wallet.service.ts          # Lógica de consulta de wallet del usuario
 │   │
-│   ├── scripts/                          # Scripts TypeScript de prueba o mantenimiento
-│   │   └── testTransactionEmail.ts       # Envía un email transaccional de prueba mediante AWS SES
+│   ├── scripts/                           # Scripts TypeScript auxiliares
+│   │   └── testTransactionEmail.ts        # Prueba manual de email transaccional con AWS SES
 │   │
-│   ├── services/                         # Servicios externos reutilizables
-│   │   └── email.service.ts              # Construye y envía emails transaccionales con AWS SES
+│   ├── services/                          # Integraciones externas reutilizables
+│   │   └── email.service.ts               # Construcción/envío de emails con AWS SES
 │   │
-│   ├── types/                            # Extensiones de tipos de TypeScript
-│   │   └── express.d.ts                  # Agrega el usuario autenticado al tipo Request de Express
+│   ├── types/                             # Extensiones de tipos TypeScript
+│   │   └── express.d.ts                   # Agrega req.user al tipo Request de Express
 │   │
-│   ├── utils/                            # Utilidades generales reutilizables
-│   │   ├── AppError.ts                   # Error controlado con código HTTP
-│   │   ├── asyncHandler.ts               # Captura errores de controladores asíncronos
-│   │   └── jwt.ts                        # Generación y validación de JWT TravelGo
+│   ├── utils/                             # Utilidades compartidas
+│   │   ├── AppError.ts                    # Error controlado con status HTTP
+│   │   ├── asyncHandler.ts                # Wrapper para controladores async
+│   │   └── jwt.ts                         # Firma y validación de JWT TravelGo
 │   │
-│   ├── app.ts                            # Configura Express, CORS, Swagger, rutas y middlewares
-│   └── server.ts                         # Valida PostgreSQL e inicia el servidor HTTP
+│   ├── app.ts                             # Configura Express, CORS, Swagger, rutas y middlewares
+│   └── server.ts                          # Verifica PostgreSQL e inicia el servidor HTTP
 │
-├── .env                                  # Variables locales privadas; nunca se sube a Git
-├── .env.example                          # Plantilla segura con todas las variables requeridas
-├── .gitignore                            # Excluye secretos, dependencias y archivos generados
-├── package.json                          # Dependencias y scripts npm
-├── package-lock.json                     # Versiones exactas de las dependencias
-├── README.md                             # Documentación principal del proyecto
-└── tsconfig.json                         # Configuración de compilación de TypeScript
-```
+├── .env                                   # Variables locales privadas; no se sube a Git
+├── .env.example                           # Plantilla segura de variables requeridas
+├── .gitignore                             # Excluye secretos, dependencias y archivos generados
+├── package.json                           # Dependencias y scripts npm
+├── package-lock.json                      # Versiones exactas de dependencias
+├── README.md                              # Documentación principal del proyecto
+└── tsconfig.json                          # Configuración TypeScript
 
 `dist/` se genera con `npm run build` y contiene el JavaScript compilado. No debe editarse manualmente ni versionarse.
 

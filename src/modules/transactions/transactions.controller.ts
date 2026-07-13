@@ -1,14 +1,17 @@
 import type { Request, Response } from "express";
-import { AppError } from "../../utils/AppError.js";
+import {
+  AppError } from "../../utils/AppError.js";
 import {
   depositFunds,
   exchangeFunds,
   transferFunds,
-} from "./transactions.service.js";
+  getRecentTransactions,
+  } from "./transactions.service.js";
 import {
   depositSchema,
   exchangeSchema,
   transferSchema,
+  recentTransactionsQuerySchema,
 } from "./transactions.schemas.js";
 
 function requireUserId(req: Request): string {
@@ -122,4 +125,30 @@ export async function exchangeController(
         : "Intercambio procesado correctamente",
       ...result,
     });
+}
+
+export async function recentTransactionsController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const parsedQuery =
+    recentTransactionsQuerySchema.safeParse(
+      req.query
+    );
+
+  if (!parsedQuery.success) {
+    throw new AppError(
+      validationErrorMessage(
+        parsedQuery.error.issues
+      ),
+      400
+    );
+  }
+
+  const result = await getRecentTransactions(
+    requireUserId(req),
+    parsedQuery.data
+  );
+
+  res.status(200).json(result);
 }

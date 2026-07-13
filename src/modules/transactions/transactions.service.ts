@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import {
+  createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import type { CurrencyCode } from "../../config/currencies.js";
 import { pool } from "../../db/pool.js";
@@ -17,6 +18,8 @@ import {
   lockWallets,
   type BalanceRow,
   type TransactionRow,
+  listRecentTransactionsForUser,
+  type RecentTransactionRow,
 } from "./transactions.repository.js";
 import type {
   DepositInput,
@@ -514,4 +517,141 @@ export async function exchangeFunds(
       ],
     };
   });
+}
+
+export type RecentTransaction = {
+  id: string;
+  type: "deposit" | "transfer" | "exchange";
+  direction: "in" | "out" | "exchange";
+  amount: string | null;
+  signedAmount: string | null;
+  currencyCode: CurrencyCode | null;
+  counterpartyEmail: string | null;
+  fromCurrency: CurrencyCode | null;
+  toCurrency: CurrencyCode | null;
+  fromAmount: string | null;
+  toAmount: string | null;
+  rate: string | null;
+  status: "completed" | "failed" | "pending";
+  createdAt: Date;
+};
+
+function normalizeOperationType(
+  type: RecentTransactionRow["type"]
+): RecentTransaction["type"] {
+  if (type === "DEPOSIT") {
+    return "deposit";
+  }
+
+  if (type === "TRANSFER") {
+    return "transfer";
+  }
+
+  return "exchange";
+}
+
+function normalizeStatus(
+  status: RecentTransactionRow["status"]
+): RecentTransaction["status"] {
+  if (status === "SUCCESS") {
+    return "completed";
+  }
+
+  if (status === "FAILED") {
+    return "failed";
+  }
+
+  return "pending";
+}
+
+function formatSignedAmount(
+  direction: RecentTransactionRow["direction"],
+  amount: string
+): string | null {
+  if (direction === "exchange") {
+    return null;
+  }
+
+  return direction === "out"
+    ? `-${amount}`
+    : `+${amount}`;
+}
+
+export function mapRecentTransaction(
+  row: RecentTransactionRow
+): RecentTransaction {
+  const type = normalizeOperationType(row.type);
+
+  if (type === "exchange") {
+    return {
+      id: row.id,
+      type,
+      direction: "exchange",
+      amount: null,
+      signedAmount: null,
+      currencyCode: null,
+      counterpartyEmail: null,
+      fromCurrency: row.from_currency,
+      toCurrency: row.to_currency,
+      fromAmount: row.from_amount,
+      toAmount: row.to_amount,
+      rate: row.exchange_rate,
+      status: normalizeStatus(row.status),
+      createdAt: row.created_at,
+    };
+  }
+
+  const amount = row.to_amount;
+  const counterpartyEmail =
+    type === "transfer"
+      ? row.direction === "out"
+        ? row.destination_email
+        : row.owner_email
+      : null;
+
+  return {
+    id: row.id,
+    type,
+    direction: row.direction,
+    amount,
+    signedAmount: formatSignedAmount(
+      row.direction,
+      amount
+    ),
+    currencyCode: row.to_currency,
+    counterpartyEmail,
+    fromCurrency: null,
+    toCurrency: null,
+    fromAmount: null,
+    toAmount: null,
+    rate: null,
+    status: normalizeStatus(row.status),
+    createdAt: row.created_at,
+  };
+}
+
+export async function getRecentTransactions(
+  userId: string,
+  input: {
+    limit: number;
+  }
+): Promise<{
+  transactions: RecentTransaction[];
+}> {
+  const client = await pool.connect();
+
+  try {
+    const rows =
+      await listRecentTransactionsForUser(
+        client,
+        userId,
+        input.limit
+      );
+
+    return {
+      transactions: rows.map(mapRecentTransaction),
+    };
+  } finally {
+    client.release();
+  }
 }
