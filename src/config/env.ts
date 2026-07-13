@@ -44,7 +44,7 @@ const geminiApiKey =
 
 const geminiModel =
   getEnv("GEMINI_MODEL") ||
-  "gemini-1.5-flash";
+  "gemini-3.5-flash";
 
 const databaseUrl =
   requireEnv("DATABASE_URL");
