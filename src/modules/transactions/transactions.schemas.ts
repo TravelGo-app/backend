@@ -81,3 +81,16 @@ export const exchangeSchema = z
 export type DepositInput = z.infer<typeof depositSchema>;
 export type TransferInput = z.infer<typeof transferSchema>;
 export type ExchangeInput = z.infer<typeof exchangeSchema>;
+
+export const recentTransactionsQuerySchema =
+  z.object({
+    limit: z.coerce
+      .number()
+      .int("El límite debe ser un entero")
+      .min(1, "El límite mínimo es 1")
+      .max(50, "El límite máximo es 50")
+      .default(10),
+  });
+
+export type RecentTransactionsQuery =
+  z.infer<typeof recentTransactionsQuerySchema>;

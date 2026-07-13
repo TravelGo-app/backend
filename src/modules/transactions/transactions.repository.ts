@@ -23,6 +23,29 @@ export type TransactionRow = {
   created_at: Date;
 };
 
+
+export type RecentTransactionDirection =
+  | "in"
+  | "out"
+  | "exchange";
+
+export type RecentTransactionRow = {
+  id: string;
+  wallet_id: string;
+  destination_wallet_id: string | null;
+  owner_email: string | null;
+  destination_email: string | null;
+  type: TransactionOperationType;
+  direction: RecentTransactionDirection;
+  from_currency: CurrencyCode;
+  to_currency: CurrencyCode;
+  from_amount: string;
+  to_amount: string;
+  exchange_rate: string;
+  status: "SUCCESS" | "FAILED" | "PENDING";
+  created_at: Date;
+};
+
 export type BalanceRow = {
   id: string;
   wallet_id: string;
@@ -336,4 +359,65 @@ export async function createTransaction(
   );
 
   return result.rows[0];
+}
+
+export async function listRecentTransactionsForUser(
+  client: PoolClient,
+  userId: string,
+  limit: number
+): Promise<RecentTransactionRow[]> {
+  const result =
+    await client.query<RecentTransactionRow>(
+      `
+      WITH current_wallet AS (
+        SELECT id
+        FROM wallets
+        WHERE user_id = $1
+        LIMIT 1
+      )
+      SELECT
+        t.id,
+        t.wallet_id,
+        t.destination_wallet_id,
+        owner_user.email AS owner_email,
+        destination_user.email AS destination_email,
+        t.type,
+        CASE
+          WHEN t.type = 'TRANSFER'
+            AND t.destination_wallet_id = current_wallet.id
+            THEN 'in'
+          WHEN t.type = 'TRANSFER'
+            AND t.wallet_id = current_wallet.id
+            THEN 'out'
+          WHEN t.type = 'EXCHANGE'
+            THEN 'exchange'
+          ELSE 'in'
+        END AS direction,
+        t.from_currency,
+        t.to_currency,
+        t.from_amount,
+        t.to_amount,
+        t.exchange_rate,
+        t.status,
+        t.created_at
+      FROM transactions t
+      INNER JOIN current_wallet
+        ON current_wallet.id = t.wallet_id
+        OR current_wallet.id = t.destination_wallet_id
+      LEFT JOIN wallets owner_wallet
+        ON owner_wallet.id = t.wallet_id
+      LEFT JOIN users owner_user
+        ON owner_user.id = owner_wallet.user_id
+      LEFT JOIN wallets destination_wallet
+        ON destination_wallet.id = t.destination_wallet_id
+      LEFT JOIN users destination_user
+        ON destination_user.id = destination_wallet.user_id
+      WHERE t.status = 'SUCCESS'
+      ORDER BY t.created_at DESC, t.id DESC
+      LIMIT $2
+      `,
+      [userId, limit]
+    );
+
+  return result.rows;
 }

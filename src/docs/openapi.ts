@@ -158,6 +158,131 @@ export const openApiDocument = {
 
   paths: {
 
+    "/api/transactions/recent": {
+      get: {
+        tags: ["Transactions"],
+        summary:
+          "Obtener actividad reciente del usuario autenticado",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: 50,
+              default: 10,
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description:
+              "Lista de transacciones recientes ordenadas de más reciente a más antigua",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    transactions: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string" },
+                          type: {
+                            type: "string",
+                            enum: [
+                              "deposit",
+                              "transfer",
+                              "exchange",
+                            ],
+                          },
+                          direction: {
+                            type: "string",
+                            enum: [
+                              "in",
+                              "out",
+                              "exchange",
+                            ],
+                          },
+                          amount: {
+                            type: "string",
+                            nullable: true,
+                            example: "20000.00",
+                          },
+                          signedAmount: {
+                            type: "string",
+                            nullable: true,
+                            example: "+20000.00",
+                          },
+                          currencyCode: {
+                            type: "string",
+                            nullable: true,
+                            example: "ARS",
+                          },
+                          counterpartyEmail: {
+                            type: "string",
+                            nullable: true,
+                            example:
+                              "destinatario@email.com",
+                          },
+                          fromCurrency: {
+                            type: "string",
+                            nullable: true,
+                            example: "ARS",
+                          },
+                          toCurrency: {
+                            type: "string",
+                            nullable: true,
+                            example: "USD",
+                          },
+                          fromAmount: {
+                            type: "string",
+                            nullable: true,
+                            example: "50000.00",
+                          },
+                          toAmount: {
+                            type: "string",
+                            nullable: true,
+                            example: "50.00",
+                          },
+                          rate: {
+                            type: "string",
+                            nullable: true,
+                            example: "0.001",
+                          },
+                          status: {
+                            type: "string",
+                            enum: [
+                              "completed",
+                              "failed",
+                              "pending",
+                            ],
+                          },
+                          createdAt: {
+                            type: "string",
+                            format: "date-time",
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token no proporcionado o inválido",
+          },
+        },
+      },
+    },
+
+
+
     "/api/chat": {
       post: {
         tags: ["Chat"],
