@@ -1,6 +1,6 @@
 import { OAuth2Client } from "google-auth-library";
 
-import { INITIAL_BALANCES } from "../../config/currencies.js";
+import { SUPPORTED_CURRENCIES } from "../../config/currencies.js";
 import { env } from "../../config/env.js";
 import { pool } from "../../db/pool.js";
 import { AppError } from "../../utils/AppError.js";
@@ -28,6 +28,13 @@ type GoogleIdentity = {
 async function verifyGoogleCredential(
   credential: string
 ): Promise<GoogleIdentity> {
+  if (!env.googleAuthEnabled) {
+    throw new AppError(
+      "Google Login está deshabilitado",
+      503
+    );
+  }
+
   if (!env.googleClientId) {
     throw new AppError(
       "Google Login no está configurado",
@@ -168,7 +175,7 @@ export async function loginWithGoogle(
         await createInitialBalances(
           client,
           wallet.id,
-          INITIAL_BALANCES
+          SUPPORTED_CURRENCIES
         );
 
         isNewUser = true;

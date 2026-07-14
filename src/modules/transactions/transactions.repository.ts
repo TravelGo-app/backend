@@ -421,3 +421,269 @@ export async function listRecentTransactionsForUser(
 
   return result.rows;
 }
+
+
+export type TransactionAnalyticsRow = {
+  date: string;
+  currency_code: CurrencyCode;
+  deposits_in: string;
+  transfers_in: string;
+  transfers_out: string;
+  exchanges_in: string;
+  exchanges_out: string;
+  net_flow: string;
+  closing_balance: string;
+  operation_count: number;
+};
+
+export type TransactionAnalyticsCountsRow = {
+  total: number;
+  deposits: number;
+  transfers_sent: number;
+  transfers_received: number;
+  exchanges: number;
+};
+
+export async function listTransactionAnalyticsForUser(
+  client: PoolClient,
+  userId: string,
+  days: number,
+  currencyCodes: readonly CurrencyCode[]
+): Promise<TransactionAnalyticsRow[]> {
+  const result =
+    await client.query<TransactionAnalyticsRow>(
+      `
+      WITH current_wallet AS (
+        SELECT id
+        FROM wallets
+        WHERE user_id = $1
+        LIMIT 1
+      ),
+      date_range AS (
+        SELECT GENERATE_SERIES(
+          CURRENT_DATE - (($2::integer - 1) * INTERVAL '1 day'),
+          CURRENT_DATE,
+          INTERVAL '1 day'
+        )::date AS day
+      ),
+      currencies AS (
+        SELECT currency_code
+        FROM UNNEST($3::varchar[])
+          AS currency_rows(currency_code)
+      ),
+      current_balances AS (
+        SELECT
+          b.currency_code,
+          b.amount::numeric AS amount
+        FROM balances b
+        INNER JOIN current_wallet
+          ON current_wallet.id = b.wallet_id
+      ),
+      events AS (
+        SELECT
+          t.created_at::date AS day,
+          t.from_currency AS currency_code,
+          t.from_amount::numeric AS deposits_in,
+          0::numeric AS transfers_in,
+          0::numeric AS transfers_out,
+          0::numeric AS exchanges_in,
+          0::numeric AS exchanges_out,
+          t.from_amount::numeric AS net_flow,
+          1::integer AS operation_count
+        FROM transactions t
+        INNER JOIN current_wallet
+          ON current_wallet.id = t.wallet_id
+        WHERE t.status = 'SUCCESS'
+          AND t.type = 'DEPOSIT'
+          AND t.created_at >= CURRENT_DATE - (($2::integer - 1) * INTERVAL '1 day')
+
+        UNION ALL
+
+        SELECT
+          t.created_at::date,
+          t.to_currency,
+          0::numeric,
+          t.to_amount::numeric,
+          0::numeric,
+          0::numeric,
+          0::numeric,
+          t.to_amount::numeric,
+          1::integer
+        FROM transactions t
+        INNER JOIN current_wallet
+          ON current_wallet.id = t.destination_wallet_id
+        WHERE t.status = 'SUCCESS'
+          AND t.type = 'TRANSFER'
+          AND t.created_at >= CURRENT_DATE - (($2::integer - 1) * INTERVAL '1 day')
+
+        UNION ALL
+
+        SELECT
+          t.created_at::date,
+          t.from_currency,
+          0::numeric,
+          0::numeric,
+          t.from_amount::numeric,
+          0::numeric,
+          0::numeric,
+          -t.from_amount::numeric,
+          1::integer
+        FROM transactions t
+        INNER JOIN current_wallet
+          ON current_wallet.id = t.wallet_id
+        WHERE t.status = 'SUCCESS'
+          AND t.type = 'TRANSFER'
+          AND t.created_at >= CURRENT_DATE - (($2::integer - 1) * INTERVAL '1 day')
+
+        UNION ALL
+
+        SELECT
+          t.created_at::date,
+          t.to_currency,
+          0::numeric,
+          0::numeric,
+          0::numeric,
+          t.to_amount::numeric,
+          0::numeric,
+          t.to_amount::numeric,
+          1::integer
+        FROM transactions t
+        INNER JOIN current_wallet
+          ON current_wallet.id = t.wallet_id
+        WHERE t.status = 'SUCCESS'
+          AND t.type = 'EXCHANGE'
+          AND t.created_at >= CURRENT_DATE - (($2::integer - 1) * INTERVAL '1 day')
+
+        UNION ALL
+
+        SELECT
+          t.created_at::date,
+          t.from_currency,
+          0::numeric,
+          0::numeric,
+          0::numeric,
+          0::numeric,
+          t.from_amount::numeric,
+          -t.from_amount::numeric,
+          1::integer
+        FROM transactions t
+        INNER JOIN current_wallet
+          ON current_wallet.id = t.wallet_id
+        WHERE t.status = 'SUCCESS'
+          AND t.type = 'EXCHANGE'
+          AND t.created_at >= CURRENT_DATE - (($2::integer - 1) * INTERVAL '1 day')
+      ),
+      daily AS (
+        SELECT
+          day,
+          currency_code,
+          SUM(deposits_in) AS deposits_in,
+          SUM(transfers_in) AS transfers_in,
+          SUM(transfers_out) AS transfers_out,
+          SUM(exchanges_in) AS exchanges_in,
+          SUM(exchanges_out) AS exchanges_out,
+          SUM(net_flow) AS net_flow,
+          SUM(operation_count)::integer AS operation_count
+        FROM events
+        GROUP BY day, currency_code
+      ),
+      series AS (
+        SELECT
+          date_range.day,
+          currencies.currency_code,
+          COALESCE(daily.deposits_in, 0::numeric) AS deposits_in,
+          COALESCE(daily.transfers_in, 0::numeric) AS transfers_in,
+          COALESCE(daily.transfers_out, 0::numeric) AS transfers_out,
+          COALESCE(daily.exchanges_in, 0::numeric) AS exchanges_in,
+          COALESCE(daily.exchanges_out, 0::numeric) AS exchanges_out,
+          COALESCE(daily.net_flow, 0::numeric) AS net_flow,
+          COALESCE(daily.operation_count, 0)::integer AS operation_count,
+          COALESCE(current_balances.amount, 0::numeric) AS current_balance
+        FROM date_range
+        CROSS JOIN currencies
+        LEFT JOIN daily
+          ON daily.day = date_range.day
+          AND daily.currency_code = currencies.currency_code
+        LEFT JOIN current_balances
+          ON current_balances.currency_code = currencies.currency_code
+      )
+      SELECT
+        day::text AS date,
+        currency_code,
+        deposits_in::text,
+        transfers_in::text,
+        transfers_out::text,
+        exchanges_in::text,
+        exchanges_out::text,
+        net_flow::text,
+        (
+          current_balance - COALESCE(
+            SUM(net_flow) OVER (
+              PARTITION BY currency_code
+              ORDER BY day DESC
+              ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+            ),
+            0::numeric
+          )
+        )::text AS closing_balance,
+        operation_count
+      FROM series
+      ORDER BY day ASC,
+        ARRAY_POSITION($3::varchar[], currency_code) ASC
+      `,
+      [userId, days, [...currencyCodes]]
+    );
+
+  return result.rows;
+}
+
+export async function getTransactionAnalyticsCountsForUser(
+  client: PoolClient,
+  userId: string,
+  days: number
+): Promise<TransactionAnalyticsCountsRow> {
+  const result =
+    await client.query<TransactionAnalyticsCountsRow>(
+      `
+      WITH current_wallet AS (
+        SELECT id
+        FROM wallets
+        WHERE user_id = $1
+        LIMIT 1
+      )
+      SELECT
+        COUNT(*)::integer AS total,
+        COUNT(*) FILTER (
+          WHERE t.type = 'DEPOSIT'
+            AND t.wallet_id = current_wallet.id
+        )::integer AS deposits,
+        COUNT(*) FILTER (
+          WHERE t.type = 'TRANSFER'
+            AND t.wallet_id = current_wallet.id
+        )::integer AS transfers_sent,
+        COUNT(*) FILTER (
+          WHERE t.type = 'TRANSFER'
+            AND t.destination_wallet_id = current_wallet.id
+        )::integer AS transfers_received,
+        COUNT(*) FILTER (
+          WHERE t.type = 'EXCHANGE'
+            AND t.wallet_id = current_wallet.id
+        )::integer AS exchanges
+      FROM transactions t
+      INNER JOIN current_wallet
+        ON current_wallet.id = t.wallet_id
+        OR current_wallet.id = t.destination_wallet_id
+      WHERE t.status = 'SUCCESS'
+        AND t.created_at >= CURRENT_DATE - (($2::integer - 1) * INTERVAL '1 day')
+      `,
+      [userId, days]
+    );
+
+  return result.rows[0] ?? {
+    total: 0,
+    deposits: 0,
+    transfers_sent: 0,
+    transfers_received: 0,
+    exchanges: 0,
+  };
+}

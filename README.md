@@ -20,7 +20,7 @@ La API permite registrar usuarios, iniciar sesión con email y contraseña o con
 - Inicio de sesión con Google Identity Services.
 - Rutas privadas protegidas mediante middleware.
 - Wallet creada automáticamente al registrar un usuario.
-- Balances iniciales creados para cinco monedas.
+- Cinco balances por wallet, todos inicializados en cero.
 - Consulta protegida de wallet y balances.
 - Consulta pública de tasas de cambio.
 - Cache de tasas almacenado en PostgreSQL.
@@ -82,7 +82,8 @@ TravelGo-backend/
 │   │   ├── schema.sql                     # Esquema base: users, wallets, balances, transactions, rates cache
 │   │   ├── 002_google_auth.sql            # Soporte Google Login: google_id, avatar_url y password nullable
 │   │   ├── 003_transactions_operations.sql # Ajustes para depósitos, transferencias, exchanges e idempotencia
-│   │   └── 004_auth_password_reset_tokens.sql # Tokens hasheados para recuperación de contraseña
+│   │   ├── 004_auth_password_reset_tokens.sql # Tokens hasheados para recuperación de contraseña
+│   │   └── 005_transaction_analytics_indexes.sql # Índices para actividad y gráficos persistidos
 │   │
 │   ├── modules/                           # Funcionalidades agrupadas por dominio
 │   │   ├── auth/                          # Registro, login, Google Login, JWT y recuperación de contraseña
@@ -199,12 +200,14 @@ Monedas actuales:
 Balances iniciales:
 
 ```txt
-ARS = 100000
+ARS = 0
 USD = 0
 EUR = 0
 BRL = 0
 CLP = 0
 ```
+
+Los depósitos son simulados, pero los saldos y movimientos se persisten realmente en PostgreSQL. El backend no carga saldos promocionales ni operaciones de demostración desde el código.
 
 ### Tasas de cambio
 
@@ -564,6 +567,18 @@ GET /api/rates/ARS/USD
 
 Son rutas públicas y no requieren JWT.
 
+### Operaciones simuladas persistidas
+
+```http
+POST /api/transactions/deposit
+POST /api/transactions/transfer
+POST /api/transactions/exchange
+GET  /api/transactions/recent?limit=10
+GET  /api/transactions/analytics?days=30
+```
+
+Estas rutas requieren JWT. Los depósitos no representan dinero real, pero depósitos, transferencias, intercambios, balances, actividad y series para gráficos se almacenan o calculan desde PostgreSQL.
+
 ### Documentación
 
 ```http
@@ -689,12 +704,11 @@ AWS SES: PASS
 
 ## Próximos pasos
 
+- Consumir `/api/transactions/analytics` desde los gráficos del frontend.
 - Implementar compra de monedas.
 - Implementar venta de monedas.
 - Implementar intercambio entre monedas.
-- Guardar historial real de transacciones simuladas.
 - Conectar el envío de emails SES al cierre exitoso de cada transacción.
-- Agregar consulta de historial de operaciones.
 - Incorporar pruebas automatizadas unitarias y de integración.
 - Configurar las variables de producción en Railway.
 - Integrar Google Login desde el frontend definitivo.
