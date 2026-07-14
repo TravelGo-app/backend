@@ -29,6 +29,11 @@ export const openApiDocument = {
       description: "Wallet y balances del usuario",
     },
     {
+      name: "Profile",
+      description:
+        "Datos personales e identificadores simulados de TravelGo",
+    },
+    {
       name: "Rates",
       description: "Tasas públicas de cambio",
     },
@@ -134,6 +139,56 @@ export const openApiDocument = {
           createdAt: {
             type: "string",
             format: "date-time",
+          },
+        },
+      },
+
+      TravelGoProfile: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          email: { type: "string", format: "email" },
+          phone: {
+            type: "string",
+            nullable: true,
+            example: "+5491123456789",
+          },
+          birthDate: {
+            type: "string",
+            format: "date",
+            nullable: true,
+          },
+          preferredCurrency: {
+            type: "string",
+            enum: ["ARS", "USD", "EUR", "BRL", "CLP"],
+          },
+          avatar: {
+            type: "object",
+            properties: {
+              url: { type: "string", nullable: true },
+              source: {
+                type: "string",
+                enum: ["google", "initials"],
+              },
+              initials: { type: "string", example: "JP" },
+            },
+          },
+          wallet: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              travelgoCvu: {
+                type: "string",
+                pattern: "^[0-9]{22}$",
+                example: "9900000000000000000015",
+              },
+              travelgoAlias: {
+                type: "string",
+                example: "juan.perez.a1b2c3",
+              },
+              simulation: { type: "boolean", example: true },
+            },
           },
         },
       },
@@ -418,6 +473,13 @@ export const openApiDocument = {
                     format: "password",
                     example: "ClaveSegura123",
                   },
+                  birthDate: {
+                    type: "string",
+                    format: "date",
+                    description:
+                      "Opcional durante la transición del frontend; si se envía, exige al menos 17 años",
+                    example: "2000-05-14",
+                  },
                 },
               },
             },
@@ -694,6 +756,156 @@ export const openApiDocument = {
       },
     },
 
+
+    "/api/profile": {
+      get: {
+        tags: ["Profile"],
+        summary: "Consultar el perfil completo",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description:
+              "Datos personales, avatar de Google, CVU y alias simulados",
+          },
+          "401": { description: "JWT ausente o inválido" },
+          "404": { description: "Perfil no encontrado" },
+        },
+      },
+      patch: {
+        tags: ["Profile"],
+        summary: "Editar datos personales",
+        description:
+          "Permite editar nombre, teléfono, fecha de nacimiento y moneda preferida. La fecha debe corresponder a una persona de al menos 17 años.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string", example: "Juan Pérez" },
+                  phone: {
+                    type: "string",
+                    nullable: true,
+                    example: "+5491123456789",
+                  },
+                  birthDate: {
+                    type: "string",
+                    format: "date",
+                    example: "2000-05-14",
+                  },
+                  preferredCurrency: {
+                    type: "string",
+                    enum: ["ARS", "USD", "EUR", "BRL", "CLP"],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Perfil actualizado" },
+          "400": { description: "Datos inválidos o menor de 17 años" },
+          "401": { description: "JWT ausente o inválido" },
+        },
+      },
+    },
+
+    "/api/profile/alias": {
+      patch: {
+        tags: ["Profile"],
+        summary: "Cambiar el alias TravelGo",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["alias"],
+                properties: {
+                  alias: {
+                    type: "string",
+                    example: "juan.viajes",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Alias actualizado" },
+          "400": { description: "Alias inválido" },
+          "409": { description: "Alias reservado o en uso" },
+        },
+      },
+    },
+
+    "/api/profile/email-change/request": {
+      post: {
+        tags: ["Profile"],
+        summary: "Solicitar cambio de email",
+        description:
+          "Envía un enlace de verificación al nuevo email. El email actual no cambia hasta confirmar el enlace.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["newEmail"],
+                properties: {
+                  newEmail: {
+                    type: "string",
+                    format: "email",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "202": { description: "Verificación enviada" },
+          "409": { description: "Email ya registrado" },
+          "503": { description: "Email deshabilitado o no disponible" },
+        },
+      },
+    },
+
+    "/api/profile/email-change/confirm": {
+      post: {
+        tags: ["Profile"],
+        summary: "Confirmar el cambio de email",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["token"],
+                properties: {
+                  token: {
+                    type: "string",
+                    pattern: "^[a-fA-F0-9]{64}$",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description:
+              "Email confirmado; devuelve un JWT actualizado",
+          },
+          "400": { description: "Token inválido o vencido" },
+          "409": { description: "Email ya registrado" },
+        },
+      },
+    },
+
     "/api/wallet/balances": {
       get: {
         tags: ["Wallet"],
@@ -803,16 +1015,24 @@ export const openApiDocument = {
               schema: {
                 type: "object",
                 required: [
-                  "recipientEmail",
+                  "recipientIdentifier",
                   "currencyCode",
                   "amount",
                   "idempotencyKey",
                 ],
                 properties: {
+                  recipientIdentifier: {
+                    type: "string",
+                    description:
+                      "Email, alias o CVU simulado de TravelGo",
+                    example: "juan.viajes",
+                  },
                   recipientEmail: {
                     type: "string",
                     format: "email",
-                    example: "destinatario@ejemplo.com",
+                    deprecated: true,
+                    description:
+                      "Campo anterior aceptado temporalmente por compatibilidad",
                   },
                   currencyCode: {
                     type: "string",

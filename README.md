@@ -717,3 +717,59 @@ AWS SES: PASS
 ## Consideraciones
 
 TravelGo es un proyecto educativo. Los saldos, compras, ventas e intercambios son simulados y no representan dinero real ni servicios financieros regulados.
+
+## Perfil e identificadores TravelGo simulados
+
+TravelGo no opera con dinero real. Cada wallet recibe automáticamente dos identificadores internos persistidos en PostgreSQL:
+
+- `travelgoCvu`: número simulado de 22 dígitos, único e inmutable.
+- `travelgoAlias`: alias único y editable.
+
+El CVU se muestra siempre como **CVU TravelGo simulado** y solo sirve para transferencias dentro de la plataforma.
+
+### Perfil
+
+Rutas protegidas con JWT:
+
+```http
+GET /api/profile
+PATCH /api/profile
+PATCH /api/profile/alias
+POST /api/profile/email-change/request
+```
+
+Confirmación pública mediante token de un solo uso:
+
+```http
+POST /api/profile/email-change/confirm
+```
+
+`PATCH /api/profile` admite:
+
+```json
+{
+  "name": "Juan Pérez",
+  "phone": "+5491123456789",
+  "birthDate": "2000-05-14",
+  "preferredCurrency": "ARS"
+}
+```
+
+La fecha de nacimiento debe corresponder a una persona con al menos 17 años. El teléfono se normaliza al formato internacional E.164. La foto de Google se usa automáticamente cuando está disponible; en caso contrario el frontend debe mostrar las iniciales devueltas por el perfil.
+
+El cambio de email requiere un enlace enviado al nuevo correo. Hasta que el enlace se confirma, el email actual permanece sin cambios.
+
+### Transferencias por email, alias o CVU
+
+El campo recomendado es `recipientIdentifier`:
+
+```json
+{
+  "recipientIdentifier": "juan.viajes",
+  "currencyCode": "ARS",
+  "amount": "2500",
+  "idempotencyKey": "transfer-uuid-unico"
+}
+```
+
+También acepta un email o un CVU TravelGo simulado de 22 dígitos. `recipientEmail` continúa aceptándose temporalmente para no romper el frontend anterior.

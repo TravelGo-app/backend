@@ -19,6 +19,9 @@ export async function getWalletBalances(userId: string) {
       wallet: {
         id: wallet.id,
         userId: wallet.user_id,
+        travelgoCvu: wallet.travelgo_cvu,
+        travelgoAlias: wallet.travelgo_alias,
+        simulation: true,
         createdAt: wallet.created_at,
       },
       balances: balances.map((balance) => ({

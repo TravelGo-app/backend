@@ -15,7 +15,7 @@ import {
   createTransaction,
   creditBalance,
   debitBalance,
-  findRecipientWalletByEmail,
+  findRecipientWalletByIdentifier,
   findTransactionByIdempotencyKey,
   lockBalances,
   lockWallets,
@@ -259,7 +259,8 @@ export async function transferFunds(
   const operationHash = requestHash(
     "TRANSFER",
     {
-      recipientEmail: input.recipientEmail,
+      recipientIdentifier:
+        input.recipientIdentifier,
       currencyCode: input.currencyCode,
       amount: input.amount,
     }
@@ -289,9 +290,9 @@ export async function transferFunds(
     }
 
     const recipient =
-      await findRecipientWalletByEmail(
+      await findRecipientWalletByIdentifier(
         client,
-        input.recipientEmail
+        input.recipientIdentifier
       );
 
     if (!recipient) {
