@@ -1,7 +1,10 @@
 import {
   createHash } from "node:crypto";
 import type { PoolClient } from "pg";
-import type { CurrencyCode } from "../../config/currencies.js";
+import {
+  SUPPORTED_CURRENCIES,
+  type CurrencyCode,
+} from "../../config/currencies.js";
 import { pool } from "../../db/pool.js";
 import { AppError } from "../../utils/AppError.js";
 import { getRatePair } from "../rates/rates.service.js";
@@ -19,12 +22,15 @@ import {
   type BalanceRow,
   type TransactionRow,
   listRecentTransactionsForUser,
+  listTransactionAnalyticsForUser,
+  getTransactionAnalyticsCountsForUser,
   type RecentTransactionRow,
 } from "./transactions.repository.js";
 import type {
   DepositInput,
   ExchangeInput,
   TransferInput,
+  TransactionAnalyticsQuery,
 } from "./transactions.schemas.js";
 
 type OperationResult = {
@@ -650,6 +656,76 @@ export async function getRecentTransactions(
 
     return {
       transactions: rows.map(mapRecentTransaction),
+    };
+  } finally {
+    client.release();
+  }
+}
+
+
+export async function getTransactionAnalytics(
+  userId: string,
+  input: TransactionAnalyticsQuery
+) {
+  const client = await pool.connect();
+
+  try {
+    const timelineRows =
+      await listTransactionAnalyticsForUser(
+        client,
+        userId,
+        input.days,
+        SUPPORTED_CURRENCIES
+      );
+
+    const operationCounts =
+      await getTransactionAnalyticsCountsForUser(
+        client,
+        userId,
+        input.days
+      );
+
+    const from =
+      timelineRows[0]?.date ?? null;
+    const to =
+      timelineRows.at(-1)?.date ?? null;
+
+    const balances = timelineRows
+      .filter((row) => row.date === to)
+      .map((row) => ({
+        currencyCode: row.currency_code,
+        amount: row.closing_balance,
+      }));
+
+    return {
+      simulation: true,
+      period: {
+        days: input.days,
+        from,
+        to,
+      },
+      operationCounts: {
+        total: operationCounts.total,
+        deposits: operationCounts.deposits,
+        transfersSent:
+          operationCounts.transfers_sent,
+        transfersReceived:
+          operationCounts.transfers_received,
+        exchanges: operationCounts.exchanges,
+      },
+      balances,
+      timeline: timelineRows.map((row) => ({
+        date: row.date,
+        currencyCode: row.currency_code,
+        closingBalance: row.closing_balance,
+        netFlow: row.net_flow,
+        depositsIn: row.deposits_in,
+        transfersIn: row.transfers_in,
+        transfersOut: row.transfers_out,
+        exchangesIn: row.exchanges_in,
+        exchangesOut: row.exchanges_out,
+        operationCount: row.operation_count,
+      })),
     };
   } finally {
     client.release();

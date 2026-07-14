@@ -5,10 +5,17 @@ import {
   depositController,
   exchangeController,
   recentTransactionsController,
+  transactionAnalyticsController,
   transferController,
 } from "./transactions.controller.js";
 
 export const transactionsRoutes = Router();
+
+transactionsRoutes.get(
+  "/analytics",
+  authMiddleware,
+  asyncHandler(transactionAnalyticsController)
+);
 
 transactionsRoutes.get(
   "/recent",

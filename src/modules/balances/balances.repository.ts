@@ -13,16 +13,22 @@ export type BalanceRow = {
 export async function createInitialBalances(
   client: PoolClient,
   walletId: string,
-  balances: Record<CurrencyCode, number>
+  currencies: readonly CurrencyCode[]
 ): Promise<BalanceRow[]> {
-  const entries = Object.entries(balances) as [CurrencyCode, number][];
-  const createdBalances: BalanceRow[] = [];
-
-  for (const [currencyCode, amount] of entries) {
-    const result = await client.query<BalanceRow>(
-      `
-      INSERT INTO balances (wallet_id, currency_code, amount)
-      VALUES ($1, $2, $3)
+  const result = await client.query<BalanceRow>(
+    `
+    WITH inserted AS (
+      INSERT INTO balances (
+        wallet_id,
+        currency_code,
+        amount
+      )
+      SELECT
+        $1::uuid,
+        currency_code,
+        0::numeric
+      FROM UNNEST($2::varchar[])
+        AS currency_rows(currency_code)
       RETURNING
         id,
         wallet_id,
@@ -30,14 +36,24 @@ export async function createInitialBalances(
         amount,
         created_at,
         updated_at
-      `,
-      [walletId, currencyCode, amount]
-    );
+    )
+    SELECT
+      id,
+      wallet_id,
+      currency_code,
+      amount,
+      created_at,
+      updated_at
+    FROM inserted
+    ORDER BY ARRAY_POSITION(
+      $2::varchar[],
+      currency_code
+    )
+    `,
+    [walletId, [...currencies]]
+  );
 
-    createdBalances.push(result.rows[0]);
-  }
-
-  return createdBalances;
+  return result.rows;
 }
 
 export async function findBalancesByWalletId(

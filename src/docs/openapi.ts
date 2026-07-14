@@ -111,7 +111,7 @@ export const openApiDocument = {
           },
           amount: {
             type: "string",
-            example: "100000.000000",
+            example: "0.000000",
           },
           updatedAt: {
             type: "string",
@@ -157,6 +157,43 @@ export const openApiDocument = {
   },
 
   paths: {
+
+    "/api/transactions/analytics": {
+      get: {
+        tags: ["Transactions"],
+        summary:
+          "Obtener datos persistidos para gráficos del usuario",
+        description:
+          "Construye balances diarios y flujos por moneda a partir de operaciones simuladas guardadas en PostgreSQL.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "days",
+            in: "query",
+            required: false,
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: 365,
+              default: 30,
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description:
+              "Balances, conteos y serie temporal por fecha y moneda",
+          },
+          "400": {
+            description: "Período inválido",
+          },
+          "401": {
+            description:
+              "Token no proporcionado o inválido",
+          },
+        },
+      },
+    },
 
     "/api/transactions/recent": {
       get: {

@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import { INITIAL_BALANCES } from "../../config/currencies.js";
+import { SUPPORTED_CURRENCIES } from "../../config/currencies.js";
 import { env } from "../../config/env.js";
 import { pool } from "../../db/pool.js";
 import { sendPasswordResetEmail } from "../../services/email.service.js";
@@ -111,7 +111,7 @@ export async function registerUser(
     const balances = await createInitialBalances(
       client,
       wallet.id,
-      INITIAL_BALANCES
+      SUPPORTED_CURRENCIES
     );
 
     const token = generateToken({

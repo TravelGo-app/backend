@@ -94,3 +94,17 @@ export const recentTransactionsQuerySchema =
 
 export type RecentTransactionsQuery =
   z.infer<typeof recentTransactionsQuerySchema>;
+
+
+export const transactionAnalyticsQuerySchema =
+  z.object({
+    days: z.coerce
+      .number()
+      .int("La cantidad de días debe ser un entero")
+      .min(1, "El período mínimo es 1 día")
+      .max(365, "El período máximo es 365 días")
+      .default(30),
+  });
+
+export type TransactionAnalyticsQuery =
+  z.infer<typeof transactionAnalyticsQuerySchema>;
