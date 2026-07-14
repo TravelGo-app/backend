@@ -23,6 +23,13 @@ export type PasswordResetEmailInput = {
   expiresInMinutes: number;
 };
 
+export type EmailChangeConfirmationInput = {
+  toEmail: string;
+  userName: string;
+  confirmationUrl: string;
+  expiresInMinutes: number;
+};
+
 export type EmailSendResult = {
   sent: boolean;
   messageId: string | null;
@@ -248,6 +255,103 @@ export async function sendPasswordResetEmail(
     "Si no pediste este cambio, podés ignorar este email.",
     "",
     "Gracias por usar TravelGo.",
+  ].join("\n");
+
+  const command = new SendEmailCommand({
+    Source: env.awsSesFromEmail,
+    Destination: {
+      ToAddresses: [toEmail],
+    },
+    Message: {
+      Subject: {
+        Charset: "UTF-8",
+        Data: subject,
+      },
+      Body: {
+        Html: {
+          Charset: "UTF-8",
+          Data: htmlBody,
+        },
+        Text: {
+          Charset: "UTF-8",
+          Data: textBody,
+        },
+      },
+    },
+  });
+
+  const response = await getSesClient().send(
+    command
+  );
+
+  return {
+    sent: true,
+    messageId: response.MessageId ?? null,
+  };
+}
+
+
+export async function sendEmailChangeConfirmationEmail(
+  input: EmailChangeConfirmationInput
+): Promise<EmailSendResult> {
+  if (!env.emailEnabled) {
+    return {
+      sent: false,
+      messageId: null,
+      reason: "El envío de emails está deshabilitado",
+    };
+  }
+
+  assertEmailConfiguration();
+
+  const toEmail = input.toEmail
+    .trim()
+    .toLowerCase();
+
+  if (!toEmail) {
+    throw new Error(
+      "El destinatario del email es obligatorio"
+    );
+  }
+
+  const safeUserName = escapeHtml(
+    input.userName.trim() || "Usuario"
+  );
+  const safeConfirmationUrl = escapeHtml(
+    input.confirmationUrl
+  );
+  const expiresInMinutes =
+    Number.isFinite(input.expiresInMinutes) &&
+    input.expiresInMinutes > 0
+      ? Math.floor(input.expiresInMinutes)
+      : 60;
+
+  const subject =
+    "TravelGo - Confirmá tu nuevo email";
+
+  const htmlBody = `
+    <h2>Hola ${safeUserName},</h2>
+    <p>Recibimos una solicitud para cambiar el email de tu cuenta TravelGo.</p>
+    <p>Para confirmar el nuevo email, abrí este enlace:</p>
+    <p><a href="${safeConfirmationUrl}">Confirmar nuevo email</a></p>
+    <p>Este enlace vence en ${expiresInMinutes} minutos.</p>
+    <p>Si no pediste este cambio, podés ignorar este email.</p>
+    <p>TravelGo es una plataforma de simulación y no opera con dinero real.</p>
+  `;
+
+  const textBody = [
+    `Hola ${input.userName.trim() || "Usuario"},`,
+    "",
+    "Recibimos una solicitud para cambiar el email de tu cuenta TravelGo.",
+    "",
+    "Abrí este enlace para confirmar el nuevo email:",
+    input.confirmationUrl,
+    "",
+    `Este enlace vence en ${expiresInMinutes} minutos.`,
+    "",
+    "Si no pediste este cambio, podés ignorar este email.",
+    "",
+    "TravelGo es una plataforma de simulación y no opera con dinero real.",
   ].join("\n");
 
   const command = new SendEmailCommand({

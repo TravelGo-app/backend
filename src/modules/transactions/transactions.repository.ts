@@ -58,6 +58,8 @@ export type RecipientWalletRow = {
   user_id: string;
   email: string;
   wallet_id: string;
+  travelgo_cvu: string;
+  travelgo_alias: string;
 };
 
 const TRANSACTION_COLUMNS = `
@@ -115,23 +117,36 @@ export async function findTransactionByIdempotencyKey(
   return result.rows[0] ?? null;
 }
 
-export async function findRecipientWalletByEmail(
+export async function findRecipientWalletByIdentifier(
   client: PoolClient,
-  email: string
+  identifier: string
 ): Promise<RecipientWalletRow | null> {
+  const normalizedIdentifier =
+    identifier.trim().toLowerCase();
+
   const result = await client.query<RecipientWalletRow>(
     `
     SELECT
       u.id AS user_id,
       u.email,
-      w.id AS wallet_id
+      w.id AS wallet_id,
+      w.travelgo_cvu,
+      w.travelgo_alias
     FROM users u
     INNER JOIN wallets w
       ON w.user_id = u.id
-    WHERE LOWER(u.email) = LOWER($1)
+    WHERE
+      w.travelgo_cvu = $1
+      OR LOWER(w.travelgo_alias) = $1
+      OR LOWER(u.email) = $1
+    ORDER BY CASE
+      WHEN w.travelgo_cvu = $1 THEN 1
+      WHEN LOWER(w.travelgo_alias) = $1 THEN 2
+      ELSE 3
+    END
     LIMIT 1
     `,
-    [email.trim()]
+    [normalizedIdentifier]
   );
 
   return result.rows[0] ?? null;

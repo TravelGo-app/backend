@@ -48,19 +48,82 @@ export const depositSchema = z
   })
   .strict();
 
+const recipientEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email("Email del destinatario inválido")
+  .max(
+    150,
+    "El email no puede superar los 150 caracteres"
+  );
+
+const recipientIdentifierSchema = z.union([
+  recipientEmailSchema,
+  z
+    .string()
+    .trim()
+    .regex(
+      /^\d{22}$/,
+      "El CVU TravelGo debe tener 22 dígitos"
+    ),
+  z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(
+      /^(?!.*\.\.)[a-z0-9](?:[a-z0-9.]{1,38}[a-z0-9])$/,
+      "El alias TravelGo no es válido"
+    ),
+]);
+
 export const transferSchema = z
   .object({
-    recipientEmail: z
-      .string()
-      .trim()
-      .email("Email del destinatario inválido")
-      .max(150, "El email no puede superar los 150 caracteres")
-      .transform((value) => value.toLowerCase()),
+    recipientIdentifier:
+      recipientIdentifierSchema.optional(),
+    recipientEmail:
+      recipientEmailSchema.optional(),
     currencyCode: currencySchema,
     amount: amountSchema,
     idempotencyKey: idempotencyKeySchema,
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) =>
+      Boolean(
+        value.recipientIdentifier ||
+        value.recipientEmail
+      ),
+    {
+      message:
+        "Debés indicar el email, alias o CVU TravelGo del destinatario",
+      path: ["recipientIdentifier"],
+    }
+  )
+  .refine(
+    (value) =>
+      !(
+        value.recipientIdentifier &&
+        value.recipientEmail
+      ),
+    {
+      message:
+        "Enviá recipientIdentifier o recipientEmail, no ambos",
+      path: ["recipientIdentifier"],
+    }
+  )
+  .transform(
+    ({
+      recipientIdentifier,
+      recipientEmail,
+      ...operation
+    }) => ({
+      ...operation,
+      recipientIdentifier:
+        recipientIdentifier ??
+        recipientEmail!,
+    })
+  );
 
 export const exchangeSchema = z
   .object({

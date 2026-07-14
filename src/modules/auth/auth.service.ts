@@ -16,6 +16,7 @@ import {
   createUser,
   findUserByEmail,
   findUserById,
+  markUserLogin,
   setUserPassword,
   updateUserPassword,
 } from "./auth.repository.js";
@@ -101,6 +102,7 @@ export async function registerUser(
       name: data.name,
       email: data.email,
       passwordHash,
+      birthDate: data.birthDate,
     });
 
     const wallet = await createWallet(
@@ -125,6 +127,9 @@ export async function registerUser(
       user: mapUser(user),
       wallet: {
         id: wallet.id,
+        travelgoCvu: wallet.travelgo_cvu,
+        travelgoAlias: wallet.travelgo_alias,
+        simulation: true,
       },
       balances: balances.map((balance) => ({
         currencyCode: balance.currency_code,
@@ -179,13 +184,18 @@ export async function loginUser(
       );
     }
 
+    const loggedInUser = await markUserLogin(
+      client,
+      user.id
+    );
+
     const token = generateToken({
-      userId: user.id,
-      email: user.email,
+      userId: loggedInUser.id,
+      email: loggedInUser.email,
     });
 
     return {
-      user: mapUser(user),
+      user: mapUser(loggedInUser),
       token,
     };
   } finally {

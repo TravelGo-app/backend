@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { birthDateSchema } from "../profile/profile.schemas.js";
+
 export const registerSchema = z.object({
   name: z
     .string()
@@ -29,6 +31,8 @@ export const registerSchema = z.object({
       6,
       "La contraseña debe tener al menos 6 caracteres"
     ),
+
+  birthDate: birthDateSchema.optional(),
 });
 
 export const loginSchema = z.object({

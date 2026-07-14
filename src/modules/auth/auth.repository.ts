@@ -79,6 +79,7 @@ export async function createUser(
     name: string;
     email: string;
     passwordHash: string;
+    birthDate?: string;
   }
 ): Promise<UserRow> {
   const result = await client.query<UserRow>(
@@ -86,15 +87,17 @@ export async function createUser(
     INSERT INTO users (
       name,
       email,
-      password_hash
+      password_hash,
+      birth_date
     )
-    VALUES ($1, $2, $3)
+    VALUES ($1, $2, $3, $4)
     RETURNING ${USER_COLUMNS}
     `,
     [
       data.name.trim(),
       data.email.trim().toLowerCase(),
       data.passwordHash,
+      data.birthDate ?? null,
     ]
   );
 
@@ -117,9 +120,10 @@ export async function createGoogleUser(
       email,
       password_hash,
       google_id,
-      avatar_url
+      avatar_url,
+      email_verified_at
     )
-    VALUES ($1, $2, NULL, $3, $4)
+    VALUES ($1, $2, NULL, $3, $4, NOW())
     RETURNING ${USER_COLUMNS}
     `,
     [
@@ -147,6 +151,10 @@ export async function linkGoogleAccount(
     SET
       google_id = $2,
       avatar_url = COALESCE($3, avatar_url),
+      email_verified_at = COALESCE(
+        email_verified_at,
+        NOW()
+      ),
       updated_at = NOW()
     WHERE id = $1
     RETURNING ${USER_COLUMNS}
@@ -159,6 +167,39 @@ export async function linkGoogleAccount(
   );
 
   return result.rows[0];
+}
+
+
+export async function updateGoogleAvatar(
+  client: PoolClient,
+  userId: string,
+  avatarUrl: string | null
+): Promise<UserRow> {
+  const result = await client.query<UserRow>(
+    `
+    UPDATE users
+    SET
+      avatar_url = COALESCE($2, avatar_url),
+      email_verified_at = COALESCE(
+        email_verified_at,
+        NOW()
+      ),
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING ${USER_COLUMNS}
+    `,
+    [userId, avatarUrl]
+  );
+
+  const user = result.rows[0];
+
+  if (!user) {
+    throw new Error(
+      "No se pudo actualizar el avatar de Google"
+    );
+  }
+
+  return user;
 }
 
 export async function setUserPassword(
@@ -200,4 +241,32 @@ export async function updateUserPassword(
   );
 
   return result.rows[0] ?? null;
+}
+
+
+export async function markUserLogin(
+  client: PoolClient,
+  userId: string
+): Promise<UserRow> {
+  const result = await client.query<UserRow>(
+    `
+    UPDATE users
+    SET
+      last_login_at = NOW(),
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING ${USER_COLUMNS}
+    `,
+    [userId]
+  );
+
+  const user = result.rows[0];
+
+  if (!user) {
+    throw new Error(
+      "No se pudo actualizar el último acceso"
+    );
+  }
+
+  return user;
 }

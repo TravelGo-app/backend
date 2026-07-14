@@ -12,6 +12,8 @@ import {
   findUserByEmail,
   findUserByGoogleId,
   linkGoogleAccount,
+  markUserLogin,
+  updateGoogleAvatar,
 } from "./auth.repository.js";
 import type { GoogleLoginInput } from "./auth.schemas.js";
 
@@ -181,6 +183,17 @@ export async function loginWithGoogle(
         isNewUser = true;
       }
     }
+
+    user = await updateGoogleAvatar(
+      client,
+      user.id,
+      identity.avatarUrl
+    );
+
+    user = await markUserLogin(
+      client,
+      user.id
+    );
 
     const token = generateToken({
       userId: user.id,
