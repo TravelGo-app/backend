@@ -6,7 +6,14 @@
     "start": "node dist/server.js",
     "db:check": "tsx src/db/checkConnection.ts",
     "db:migrate": "node scripts/migrate.mjs",
-    "email:test": "tsx src/scripts/testTransactionEmail.ts"
+    "email:test": "tsx src/scripts/testTransactionEmail.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:coverage": "vitest run --coverage",
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
+    "validate": "npm run build && npm run typecheck:test && npm run test:coverage"
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.1079.0",
@@ -27,8 +34,12 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.1.0",
     "@types/pg": "^8.20.0",
+    "@types/supertest": "^7.2.1",
     "@types/swagger-ui-express": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.10",
+    "supertest": "^7.2.2",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

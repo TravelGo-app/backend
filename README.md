@@ -32,6 +32,7 @@ La API permite registrar usuarios, iniciar sesión con email y contraseña o con
 - Migraciones ejecutadas varias veces sin duplicar estructura.
 - Login con Google validado sin duplicar usuario, wallet ni balances.
 - Envío real mediante AWS SES validado con `messageId`.
+- Suite automatizada con tests unitarios, integración HTTP, cobertura y typecheck de tests.
 
 ## Tecnologías
 
@@ -55,120 +56,171 @@ La API permite registrar usuarios, iniciar sesión con email y contraseña o con
 
 ```txt
 TravelGo-backend/
-├── scripts/                               # Scripts ejecutados fuera de src
-│   └── migrate.mjs                        # Ejecuta schema.sql y migraciones numeradas en orden
-│
-├── src/                                   # Código fuente principal en TypeScript
-│   ├── config/                            # Configuración y reglas compartidas
-│   │   ├── currencies.ts                  # Monedas soportadas: ARS, USD, EUR, BRL y CLP
-│   │   ├── env.ts                         # Lectura/validación de variables de entorno y feature flags
-│   │   └── transactions.ts                # Tipos y reglas base de operaciones financieras simuladas
-│   │
-│   ├── db/                                # Acceso a PostgreSQL
-│   │   ├── checkConnection.ts             # Verifica disponibilidad de PostgreSQL antes de iniciar
-│   │   └── pool.ts                        # Pool global de conexiones utilizado por repositorios
-│   │
-│   ├── dev/                               # Herramientas disponibles solo en desarrollo
-│   │   └── google-login-test.page.ts      # Página local para probar Google Login y rutas protegidas
-│   │
-│   ├── docs/                              # Documentación técnica de la API
-│   │   └── openapi.ts                     # Documento OpenAPI 3.0.3 usado por Swagger UI
-│   │
-│   ├── middlewares/                       # Middlewares globales de Express
-│   │   ├── auth.middleware.ts             # Valida JWT y agrega req.user
-│   │   └── error.middleware.ts            # Manejo centralizado de errores HTTP
-│   │
-│   ├── migrations/                        # Esquema base y cambios incrementales idempotentes
-│   │   ├── schema.sql                     # Esquema base: users, wallets, balances, transactions, rates cache
-│   │   ├── 002_google_auth.sql            # Soporte Google Login: google_id, avatar_url y password nullable
-│   │   ├── 003_transactions_operations.sql # Ajustes para depósitos, transferencias, exchanges e idempotencia
-│   │   ├── 004_auth_password_reset_tokens.sql # Tokens hasheados para recuperación de contraseña
-│   │   └── 005_transaction_analytics_indexes.sql # Índices para actividad y gráficos persistidos
-│   │
-│   ├── modules/                           # Funcionalidades agrupadas por dominio
-│   │   ├── auth/                          # Registro, login, Google Login, JWT y recuperación de contraseña
-│   │   │   ├── auth.controller.ts         # Controladores HTTP de autenticación
-│   │   │   ├── auth.repository.ts         # Consultas SQL de usuarios y credenciales
-│   │   │   ├── auth.routes.ts             # Rutas /api/auth/*
-│   │   │   ├── auth.schemas.ts            # Validaciones Zod de auth
-│   │   │   ├── auth.service.ts            # Lógica de negocio de autenticación
-│   │   │   └── password-reset.repository.ts # Persistencia de tokens de recuperación
-│   │   │
-│   │   ├── balances/                      # Creación y acceso a balances por moneda
-│   │   │
-│   │   ├── chat/                          # Chatbot TravelGo con Gemini
-│   │   │   ├── chat.controller.ts         # Controlador POST /api/chat
-│   │   │   ├── chat.memory.ts             # Historial temporal en memoria con TTL de 20 minutos
-│   │   │   ├── chat.routes.ts             # Rutas del chatbot
-│   │   │   ├── chat.schemas.ts            # Validación de sessionId y message
-│   │   │   └── chat.service.ts            # Lógica de llamada a Gemini y system prompt TravelGo-only
-│   │   │
-│   │   ├── rates/                         # Consulta pública de tasas y cache en PostgreSQL
-│   │   │   ├── rates.controller.ts        # Controladores de tasas
-│   │   │   ├── rates.provider.ts          # Cliente del proveedor externo de tasas
-│   │   │   ├── rates.repository.ts        # Cache de tasas en PostgreSQL
-│   │   │   ├── rates.routes.ts            # Rutas /api/rates
-│   │   │   └── rates.service.ts           # Normalización y estrategia de cache
-│   │   │
-│   │   ├── transactions/                  # Operaciones simuladas y actividad reciente
-│   │   │   ├── transactions.controller.ts # Controladores deposit, transfer, exchange y recent
-│   │   │   ├── transactions.repository.ts # Queries SQL, locks, balances y lectura de historial
-│   │   │   ├── transactions.routes.ts     # Rutas /api/transactions/*
-│   │   │   ├── transactions.schemas.ts    # Validaciones Zod de operaciones y query limit
-│   │   │   └── transactions.service.ts    # Lógica transaccional, idempotencia y normalización
-│   │   │
-│   │   └── wallet/                        # Creación de wallet y consulta de balances
-│   │       ├── wallet.controller.ts       # Controlador de wallet/balances
-│   │       ├── wallet.repository.ts       # Consultas SQL de wallets y balances
-│   │       ├── wallet.routes.ts           # Ruta protegida /api/wallet/balances
-│   │       └── wallet.service.ts          # Lógica de consulta de wallet del usuario
-│   │
-│   ├── scripts/                           # Scripts TypeScript auxiliares
-│   │   └── testTransactionEmail.ts        # Prueba manual de email transaccional con AWS SES
-│   │
-│   ├── services/                          # Integraciones externas reutilizables
-│   │   └── email.service.ts               # Construcción/envío de emails con AWS SES
-│   │
-│   ├── types/                             # Extensiones de tipos TypeScript
-│   │   └── express.d.ts                   # Agrega req.user al tipo Request de Express
-│   │
-│   ├── utils/                             # Utilidades compartidas
-│   │   ├── AppError.ts                    # Error controlado con status HTTP
-│   │   ├── asyncHandler.ts                # Wrapper para controladores async
-│   │   └── jwt.ts                         # Firma y validación de JWT TravelGo
-│   │
-│   ├── app.ts                             # Configura Express, CORS, Swagger, rutas y middlewares
-│   └── server.ts                          # Verifica PostgreSQL e inicia el servidor HTTP
-│
-├── .env                                   # Variables locales privadas; no se sube a Git
-├── .env.example                           # Plantilla segura de variables requeridas
-├── .gitignore                             # Excluye secretos, dependencias y archivos generados
-├── package.json                           # Dependencias y scripts npm
-├── package-lock.json                      # Versiones exactas de dependencias
-├── README.md                              # Documentación principal del proyecto
-└── tsconfig.json                          # Configuración TypeScript
+├── .activity-history-backups/
+│   ├── 20260716_020804/
+│   │   └── src/
+│   │       ├── docs/
+│   │       │   └── openapi.ts
+│   │       ├── modules/
+│   │       │   └── profile/
+│   │       │       └── profile.service.ts
+│   │       └── app.ts
+│   └── repair_v2_20260716_021435/
+│       └── src/
+│           ├── docs/
+│           │   └── openapi.ts
+│           ├── migrations/
+│           │   └── 20260716_activity_history.sql
+│           ├── modules/
+│           │   ├── activity-history/
+│           │   │   ├── activity-history.controller.ts
+│           │   │   ├── activity-history.repository.ts
+│           │   │   ├── activity-history.routes.ts
+│           │   │   ├── activity-history.schemas.ts
+│           │   │   ├── activity-history.service.ts
+│           │   │   └── activity-history.types.ts
+│           │   └── profile/
+│           │       └── profile.service.ts
+│           └── app.ts
+├── scripts/
+│   └── migrate.mjs
+├── src/
+│   ├── config/
+│   │   ├── currencies.ts
+│   │   ├── env.ts
+│   │   └── transactions.ts
+│   ├── db/
+│   │   ├── checkConnection.ts
+│   │   └── pool.ts
+│   ├── dev/
+│   │   └── google-login-test.page.ts
+│   ├── docs/
+│   │   └── openapi.ts
+│   ├── middlewares/
+│   │   ├── auth.middleware.ts
+│   │   ├── email-availability-rate-limit.middleware.ts
+│   │   └── error.middleware.ts
+│   ├── migrations/
+│   │   ├── 002_google_auth.sql
+│   │   ├── 003_transactions_operations.sql
+│   │   ├── 004_auth_password_reset_tokens.sql
+│   │   ├── 005_transaction_analytics_indexes.sql
+│   │   ├── 006_profile_travelgo_identifiers.sql
+│   │   ├── 007_email_outbox_notifications.sql
+│   │   ├── 20260716_activity_history.sql
+│   │   └── schema.sql
+│   ├── modules/
+│   │   ├── activity-history/
+│   │   │   ├── activity-history.controller.ts
+│   │   │   ├── activity-history.repository.ts
+│   │   │   ├── activity-history.routes.ts
+│   │   │   ├── activity-history.schemas.ts
+│   │   │   ├── activity-history.service.ts
+│   │   │   └── activity-history.types.ts
+│   │   ├── auth/
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.repository.ts
+│   │   │   ├── auth.routes.ts
+│   │   │   ├── auth.schemas.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── google-auth.service.ts
+│   │   │   └── password-reset.repository.ts
+│   │   ├── balances/
+│   │   │   └── balances.repository.ts
+│   │   ├── chat/
+│   │   │   ├── chat.controller.ts
+│   │   │   ├── chat.memory.ts
+│   │   │   ├── chat.routes.ts
+│   │   │   ├── chat.schemas.ts
+│   │   │   └── chat.service.ts
+│   │   ├── email-outbox/
+│   │   │   ├── dashboard-summary.service.ts
+│   │   │   ├── email-notifications.service.ts
+│   │   │   ├── email-outbox.repository.ts
+│   │   │   ├── email-outbox.worker.ts
+│   │   │   └── email-templates.ts
+│   │   ├── profile/
+│   │   │   ├── email-change.repository.ts
+│   │   │   ├── profile.controller.ts
+│   │   │   ├── profile.repository.ts
+│   │   │   ├── profile.routes.ts
+│   │   │   ├── profile.schemas.ts
+│   │   │   └── profile.service.ts
+│   │   ├── rates/
+│   │   │   ├── rates.controller.ts
+│   │   │   ├── rates.provider.ts
+│   │   │   ├── rates.repository.ts
+│   │   │   ├── rates.routes.ts
+│   │   │   └── rates.service.ts
+│   │   ├── transactions/
+│   │   │   ├── transactions.controller.ts
+│   │   │   ├── transactions.repository.ts
+│   │   │   ├── transactions.routes.ts
+│   │   │   ├── transactions.schemas.ts
+│   │   │   └── transactions.service.ts
+│   │   └── wallet/
+│   │       ├── wallet.controller.ts
+│   │       ├── wallet.repository.ts
+│   │       ├── wallet.routes.ts
+│   │       └── wallet.service.ts
+│   ├── scripts/
+│   │   └── testTransactionEmail.ts
+│   ├── services/
+│   │   └── email.service.ts
+│   ├── types/
+│   │   └── express.d.ts
+│   ├── utils/
+│   │   ├── AppError.ts
+│   │   ├── asyncHandler.ts
+│   │   ├── jwt.ts
+│   │   └── password.ts
+│   ├── app.ts
+│   └── server.ts
+├── tests/
+│   ├── integration/
+│   │   └── app.public.test.ts
+│   ├── unit/
+│   │   ├── auth.schemas.test.ts
+│   │   ├── chat-activity.schemas.test.ts
+│   │   ├── chat-memory.test.ts
+│   │   ├── config.test.ts
+│   │   ├── email-disabled.test.ts
+│   │   ├── openapi.test.ts
+│   │   ├── profile.schemas.test.ts
+│   │   ├── transactions.schemas.test.ts
+│   │   └── utils-middlewares.test.ts
+│   └── setup.ts
+├── .env.example
+├── .gitignore
+├── package-lock.json
+├── package.json
+├── README.md
+├── tsconfig.json
+├── tsconfig.test.json
+└── vitest.config.ts
+```
 
-`dist/` se genera con `npm run build` y contiene el JavaScript compilado. No debe editarse manualmente ni versionarse.
+<!-- TRAVELGO_AUTOMATED_TESTS_START -->
 
-## Módulos principales
+## Validación automatizada
 
-### Autenticación
+La suite determinística no utiliza la base de datos real, AWS SES, Google ni Gemini. Las dependencias externas se deshabilitan o simulan para que los resultados sean repetibles.
 
-El módulo `src/modules/auth/` gestiona:
+Comandos disponibles:
 
-- Registro tradicional con nombre, email y contraseña.
-- Cifrado de contraseña mediante bcrypt.
-- Login tradicional.
-- Generación de JWT propios de TravelGo.
-- Consulta del usuario autenticado.
-- Login mediante Google Identity Services.
-- Creación de usuarios Google sin contraseña local.
-- Asociación del `google_id` y avatar del usuario.
-- Reutilización de una cuenta Google existente sin duplicar wallet ni balances.
+```bash
+npm test                  # Suite completa
+npm run test:unit         # Reglas, schemas, utilidades y middlewares
+npm run test:integration  # Contratos HTTP públicos con PostgreSQL simulado
+npm run test:coverage     # Suite completa con reporte de cobertura
+npm run typecheck:test    # TypeScript de código y tests
+npm run build             # Compilación productiva
+npm run validate          # Build + typecheck de tests + cobertura
+```
 
-El frontend obtiene una credencial de Google y la envía al backend:
+Los chequeos reales de PostgreSQL, AWS SES y otros proveedores externos se ejecutan por separado porque dependen de credenciales, conectividad y servicios activos.
 
-```txt
+<!-- TRAVELGO_AUTOMATED_TESTS_END -->txt
 Google Identity Services
 → credential de Google
 → POST /api/auth/google
