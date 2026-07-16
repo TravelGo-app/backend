@@ -11,6 +11,10 @@ import {
   hashPassword,
 } from "../../utils/password.js";
 import { createInitialBalances } from "../balances/balances.repository.js";
+import {
+  queueLoginDashboardReminder,
+  queueWelcomeEmail,
+} from "../email-outbox/email-notifications.service.js";
 import { createWallet } from "../wallet/wallet.repository.js";
 import {
   createUser,
@@ -116,6 +120,15 @@ export async function registerUser(
       SUPPORTED_CURRENCIES
     );
 
+    await queueWelcomeEmail(client, {
+      user_id: user.id,
+      name: user.name,
+      email: user.email,
+      wallet_id: wallet.id,
+      travelgo_cvu: wallet.travelgo_cvu,
+      travelgo_alias: wallet.travelgo_alias,
+    });
+
     const token = generateToken({
       userId: user.id,
       email: user.email,
@@ -193,6 +206,10 @@ export async function loginUser(
       userId: loggedInUser.id,
       email: loggedInUser.email,
     });
+
+    await queueLoginDashboardReminder(
+      loggedInUser.id
+    );
 
     return {
       user: mapUser(loggedInUser),

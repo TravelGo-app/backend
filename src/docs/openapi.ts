@@ -1166,6 +1166,92 @@ export const openApiDocument = {
       },
     },
 
+    "/api/profile/email-preferences": {
+      get: {
+        tags: ["Profile"],
+        summary: "Consultar preferencias de correos operativos",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "Preferencias actuales",
+          },
+          "401": {
+            description: "Token no proporcionado o inválido",
+          },
+        },
+      },
+      patch: {
+        tags: ["Profile"],
+        summary: "Actualizar preferencias de correos operativos",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  notifyDeposits: { type: "boolean" },
+                  notifyTransfersSent: { type: "boolean" },
+                  notifyTransfersReceived: { type: "boolean" },
+                  notifyExchanges: { type: "boolean" },
+                  notifyLoginDashboardReminder: { type: "boolean" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Preferencias actualizadas",
+          },
+          "400": {
+            description: "Preferencias inválidas",
+          },
+          "401": {
+            description: "Token no proporcionado o inválido",
+          },
+        },
+      },
+    },
+
+    "/api/profile/dashboard-summary-email": {
+      post: {
+        tags: ["Profile"],
+        summary: "Programar el envío manual del resumen del dashboard",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  days: {
+                    type: "integer",
+                    minimum: 1,
+                    maximum: 365,
+                    default: 30,
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "202": {
+            description: "Resumen programado en la cola de correos",
+          },
+          "401": {
+            description: "Token no proporcionado o inválido",
+          },
+          "429": {
+            description: "Se solicitó otro resumen demasiado pronto",
+          },
+        },
+      },
+    },
+
     "/api/rates": {
       get: {
         tags: ["Rates"],

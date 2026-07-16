@@ -162,3 +162,38 @@ export type EmailChangeRequestInput =
 
 export type EmailChangeConfirmInput =
   z.infer<typeof emailChangeConfirmSchema>;
+
+export const emailPreferencesUpdateSchema = z
+  .object({
+    notifyDeposits: z.boolean().optional(),
+    notifyTransfersSent: z.boolean().optional(),
+    notifyTransfersReceived: z.boolean().optional(),
+    notifyExchanges: z.boolean().optional(),
+    notifyLoginDashboardReminder:
+      z.boolean().optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      Object.values(value).some(
+        (item) => item !== undefined
+      ),
+    "Debés enviar al menos una preferencia"
+  );
+
+export const dashboardSummaryEmailSchema = z
+  .object({
+    days: z.coerce
+      .number()
+      .int("La cantidad de días debe ser un entero")
+      .min(1, "El período mínimo es 1 día")
+      .max(365, "El período máximo es 365 días")
+      .default(30),
+  })
+  .strict();
+
+export type EmailPreferencesUpdateInput =
+  z.infer<typeof emailPreferencesUpdateSchema>;
+
+export type DashboardSummaryEmailInput =
+  z.infer<typeof dashboardSummaryEmailSchema>;

@@ -825,7 +825,7 @@ export async function sendChatMessage(
       pendingUserMessage
     );
 
-    appendChatMessage(session, {
+    appendChatMessage(session, { 
       role: "model",
       text: reply,
       createdAt: Date.now(),
