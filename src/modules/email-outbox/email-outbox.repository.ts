@@ -330,7 +330,23 @@ export async function claimNextEmail(
       updated_at = NOW()
     FROM candidate
     WHERE outbox.id = candidate.id
-    RETURNING ${OUTBOX_COLUMNS}
+    RETURNING
+      outbox.id,
+      outbox.event_type,
+      outbox.user_id,
+      outbox.recipient_email,
+      outbox.payload,
+      outbox.deduplication_key,
+      outbox.status,
+      outbox.attempt_count,
+      outbox.max_attempts,
+      outbox.available_at,
+      outbox.locked_at,
+      outbox.sent_at,
+      outbox.provider_message_id,
+      outbox.last_error,
+      outbox.created_at,
+      outbox.updated_at
     `
   );
 
