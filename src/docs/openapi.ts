@@ -34,6 +34,11 @@ export const openApiDocument = {
         "Datos personales e identificadores simulados de TravelGo",
     },
     {
+      name: "Activity History",
+      description:
+        "Historial unificado de actividad, seguridad, perfil, emails y operaciones",
+    },
+    {
       name: "Rates",
       description: "Tasas públicas de cambio",
     },
@@ -374,6 +379,79 @@ export const openApiDocument = {
     },
 
 
+
+    "/api/activity-history": {
+      get: {
+        tags: ["Activity History"],
+        summary: "Obtener historial unificado del usuario",
+        description:
+          "Combina actividad de cuenta, perfil, seguridad, emails y operaciones financieras persistidas.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: 100,
+              default: 25,
+            },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            name: "category",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              enum: [
+                "AUTH",
+                "PROFILE",
+                "WALLET",
+                "EMAIL",
+                "SECURITY",
+                "SYSTEM",
+              ],
+            },
+          },
+          {
+            name: "status",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              enum: ["SUCCESS", "FAILED", "PENDING", "INFO"],
+            },
+          },
+          {
+            name: "eventType",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description:
+              "Historial paginado de más reciente a más antiguo",
+          },
+          "400": {
+            description: "Filtros o cursor inválidos",
+          },
+          "401": {
+            description:
+              "Token no proporcionado, inválido o expirado",
+          },
+        },
+      },
+    },
 
     "/api/chat": {
       post: {

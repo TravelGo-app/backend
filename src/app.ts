@@ -10,6 +10,7 @@ import { openApiDocument } from "./docs/openapi.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { profileRoutes } from "./modules/profile/profile.routes.js";
+import { activityHistoryRoutes } from "./modules/activity-history/activity-history.routes.js";
 import { ratesRoutes } from "./modules/rates/rates.routes.js";
 import { transactionsRoutes } from "./modules/transactions/transactions.routes.js";
 import { walletRoutes } from "./modules/wallet/wallet.routes.js";
@@ -76,6 +77,9 @@ app.use(
   swaggerUi.setup(openApiDocument, {
     explorer: true,
     customSiteTitle: "TravelGo API",
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
   })
 );
 
@@ -89,6 +93,7 @@ if (env.nodeEnv !== "production") {
 app.use("/api/auth", authRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/activity-history", activityHistoryRoutes);
 app.use("/api/rates", ratesRoutes);
 app.use("/api/transactions", transactionsRoutes);
 
