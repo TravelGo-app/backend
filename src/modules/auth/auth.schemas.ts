@@ -2,6 +2,18 @@ import { z } from "zod";
 
 import { birthDateSchema } from "../profile/profile.schemas.js";
 
+export const emailAvailabilitySchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Email inválido")
+    .max(
+      150,
+      "El email no puede superar los 150 caracteres"
+    ),
+});
+
 export const registerSchema = z.object({
   name: z
     .string()
@@ -115,6 +127,9 @@ export const setPasswordSchema = z.object({
       "La contraseña no puede superar los 72 caracteres"
     ),
 });
+
+export type EmailAvailabilityInput =
+  z.infer<typeof emailAvailabilitySchema>;
 
 export type RegisterInput =
   z.infer<typeof registerSchema>;

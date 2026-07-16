@@ -5,6 +5,7 @@ import type {
 
 import { AppError } from "../../utils/AppError.js";
 import {
+  checkEmailAvailability,
   getCurrentUser,
   loginUser,
   registerUser,
@@ -14,6 +15,7 @@ import {
 } from "./auth.service.js";
 import { loginWithGoogle } from "./google-auth.service.js";
 import {
+  emailAvailabilitySchema,
   forgotPasswordSchema,
   googleLoginSchema,
   loginSchema,
@@ -21,6 +23,29 @@ import {
   resetPasswordSchema,
   setPasswordSchema,
 } from "./auth.schemas.js";
+
+export async function emailAvailabilityController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const parsedBody =
+    emailAvailabilitySchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    const message =
+      parsedBody.error.issues[0]?.message ??
+      "Datos inválidos";
+
+    throw new AppError(message, 400);
+  }
+
+  const result = await checkEmailAvailability(
+    parsedBody.data
+  );
+
+  res.setHeader("Cache-Control", "no-store");
+  res.status(200).json(result);
+}
 
 export async function registerController(
   req: Request,
