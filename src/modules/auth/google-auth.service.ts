@@ -6,6 +6,10 @@ import { pool } from "../../db/pool.js";
 import { AppError } from "../../utils/AppError.js";
 import { generateToken } from "../../utils/jwt.js";
 import { createInitialBalances } from "../balances/balances.repository.js";
+import {
+  queueLoginDashboardReminder,
+  queueWelcomeEmail,
+} from "../email-outbox/email-notifications.service.js";
 import { createWallet } from "../wallet/wallet.repository.js";
 import {
   createGoogleUser,
@@ -180,6 +184,15 @@ export async function loginWithGoogle(
           SUPPORTED_CURRENCIES
         );
 
+        await queueWelcomeEmail(client, {
+          user_id: user.id,
+          name: user.name,
+          email: user.email,
+          wallet_id: wallet.id,
+          travelgo_cvu: wallet.travelgo_cvu,
+          travelgo_alias: wallet.travelgo_alias,
+        });
+
         isNewUser = true;
       }
     }
@@ -201,6 +214,8 @@ export async function loginWithGoogle(
     });
 
     await client.query("COMMIT");
+
+    await queueLoginDashboardReminder(user.id);
 
     return {
       user: {

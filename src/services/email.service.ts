@@ -386,3 +386,74 @@ export async function sendEmailChangeConfirmationEmail(
     messageId: response.MessageId ?? null,
   };
 }
+
+export type RawEmailInput = {
+  toEmail: string;
+  subject: string;
+  htmlBody: string;
+  textBody: string;
+};
+
+export async function sendRawEmail(
+  input: RawEmailInput
+): Promise<EmailSendResult> {
+  if (!env.emailEnabled) {
+    return {
+      sent: false,
+      messageId: null,
+      reason: "El envío de emails está deshabilitado",
+    };
+  }
+
+  assertEmailConfiguration();
+
+  const toEmail = input.toEmail
+    .trim()
+    .toLowerCase();
+
+  if (!toEmail) {
+    throw new Error(
+      "El destinatario del email es obligatorio"
+    );
+  }
+
+  const subject = input.subject.trim();
+
+  if (!subject) {
+    throw new Error(
+      "El asunto del email es obligatorio"
+    );
+  }
+
+  const command = new SendEmailCommand({
+    Source: env.awsSesFromEmail,
+    Destination: {
+      ToAddresses: [toEmail],
+    },
+    Message: {
+      Subject: {
+        Charset: "UTF-8",
+        Data: subject,
+      },
+      Body: {
+        Html: {
+          Charset: "UTF-8",
+          Data: input.htmlBody,
+        },
+        Text: {
+          Charset: "UTF-8",
+          Data: input.textBody,
+        },
+      },
+    },
+  });
+
+  const response = await getSesClient().send(
+    command
+  );
+
+  return {
+    sent: true,
+    messageId: response.MessageId ?? null,
+  };
+}

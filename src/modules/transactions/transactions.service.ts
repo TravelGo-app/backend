@@ -8,6 +8,12 @@ import {
 import { pool } from "../../db/pool.js";
 import { AppError } from "../../utils/AppError.js";
 import { getRatePair } from "../rates/rates.service.js";
+import {
+  queueDepositEmail,
+  queueExchangeEmail,
+  queueTransferEmails,
+  requireEmailAccount,
+} from "../email-outbox/email-notifications.service.js";
 import { findWalletByUserId } from "../wallet/wallet.repository.js";
 import {
   acquireIdempotencyLock,
@@ -244,6 +250,20 @@ export async function depositFunds(
       }
     );
 
+    const account = await requireEmailAccount(
+      client,
+      userId
+    );
+
+    await queueDepositEmail(client, {
+      account,
+      amount: input.amount,
+      currencyCode: input.currencyCode,
+      balanceAfter: creditedBalance.amount,
+      transactionId: transaction.id,
+      createdAt: transaction.created_at,
+    });
+
     return {
       idempotentReplay: false,
       transaction: mapTransaction(transaction),
@@ -374,6 +394,25 @@ export async function transferFunds(
         requestHash: operationHash,
       }
     );
+
+    const senderAccount = await requireEmailAccount(
+      client,
+      userId
+    );
+    const recipientAccount = await requireEmailAccount(
+      client,
+      recipient.user_id
+    );
+
+    await queueTransferEmails(client, {
+      sender: senderAccount,
+      recipient: recipientAccount,
+      amount: input.amount,
+      currencyCode: input.currencyCode,
+      senderBalanceAfter: debitedBalance.amount,
+      transactionId: transaction.id,
+      createdAt: transaction.created_at,
+    });
 
     return {
       idempotentReplay: false,
@@ -514,6 +553,22 @@ export async function exchangeFunds(
         requestHash: operationHash,
       }
     );
+
+    const account = await requireEmailAccount(
+      client,
+      userId
+    );
+
+    await queueExchangeEmail(client, {
+      account,
+      fromCurrency: input.fromCurrency,
+      toCurrency: input.toCurrency,
+      fromAmount: input.amount,
+      toAmount: calculated.to_amount,
+      exchangeRate: calculated.exchange_rate,
+      transactionId: transaction.id,
+      createdAt: transaction.created_at,
+    });
 
     return {
       idempotentReplay: false,

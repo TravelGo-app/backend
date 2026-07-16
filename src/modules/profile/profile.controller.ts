@@ -5,6 +5,11 @@ import type {
 
 import { AppError } from "../../utils/AppError.js";
 import {
+  getUserEmailPreferences,
+  setUserEmailPreferences,
+} from "../email-outbox/email-notifications.service.js";
+import { queueDashboardSummaryEmail } from "../email-outbox/dashboard-summary.service.js";
+import {
   confirmEmailChange,
   getProfile,
   requestEmailChange,
@@ -13,8 +18,10 @@ import {
 } from "./profile.service.js";
 import {
   aliasUpdateSchema,
+  dashboardSummaryEmailSchema,
   emailChangeConfirmSchema,
   emailChangeRequestSchema,
+  emailPreferencesUpdateSchema,
   profileUpdateSchema,
 } from "./profile.schemas.js";
 
@@ -154,6 +161,79 @@ export async function confirmEmailChangeController(
 
   res.status(200).json({
     message: "Email actualizado correctamente",
+    ...result,
+  });
+}
+
+export async function getEmailPreferencesController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const result =
+    await getUserEmailPreferences(
+      requireUserId(req)
+    );
+
+  res.status(200).json(result);
+}
+
+export async function updateEmailPreferencesController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const parsedBody =
+    emailPreferencesUpdateSchema.safeParse(
+      req.body
+    );
+
+  if (!parsedBody.success) {
+    throw new AppError(
+      validationErrorMessage(
+        parsedBody.error.issues
+      ),
+      400
+    );
+  }
+
+  const result =
+    await setUserEmailPreferences(
+      requireUserId(req),
+      parsedBody.data
+    );
+
+  res.status(200).json({
+    message:
+      "Preferencias de correo actualizadas",
+    ...result,
+  });
+}
+
+export async function dashboardSummaryEmailController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const parsedBody =
+    dashboardSummaryEmailSchema.safeParse(
+      req.body ?? {}
+    );
+
+  if (!parsedBody.success) {
+    throw new AppError(
+      validationErrorMessage(
+        parsedBody.error.issues
+      ),
+      400
+    );
+  }
+
+  const result = await queueDashboardSummaryEmail(
+    requireUserId(req),
+    parsedBody.data.days
+  );
+
+  res.status(202).json({
+    message:
+      "El resumen fue programado para enviarse a tu correo",
     ...result,
   });
 }

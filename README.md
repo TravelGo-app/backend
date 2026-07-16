@@ -773,3 +773,47 @@ El campo recomendado es `recipientIdentifier`:
 ```
 
 También acepta un email o un CVU TravelGo simulado de 22 dígitos. `recipientEmail` continúa aceptándose temporalmente para no romper el frontend anterior.
+
+## Notificaciones automáticas por correo y outbox
+
+TravelGo encola correos persistentes en PostgreSQL y los envía mediante Amazon SES sin hacer depender las operaciones monetarias simuladas de la disponibilidad inmediata del proveedor.
+
+Eventos automáticos:
+
+- bienvenida al completar un registro tradicional o con Google;
+- depósito simulado completado;
+- transferencia enviada;
+- transferencia recibida;
+- intercambio completado;
+- recordatorio del dashboard cinco minutos después del login, como máximo una vez cada 24 horas.
+
+El resumen completo del dashboard es manual:
+
+```http
+POST /api/profile/dashboard-summary-email
+Authorization: Bearer JWT
+Content-Type: application/json
+
+{
+  "days": 30
+}
+```
+
+Preferencias configurables:
+
+```http
+GET /api/profile/email-preferences
+PATCH /api/profile/email-preferences
+```
+
+```json
+{
+  "notifyDeposits": true,
+  "notifyTransfersSent": true,
+  "notifyTransfersReceived": true,
+  "notifyExchanges": true,
+  "notifyLoginDashboardReminder": true
+}
+```
+
+La cola utiliza deduplicación, bloqueo con `FOR UPDATE SKIP LOCKED`, recuperación de trabajos bloqueados y reintentos exponenciales. Un error de AWS SES no revierte una transferencia, depósito o intercambio ya confirmado; el correo queda pendiente para un nuevo intento.
