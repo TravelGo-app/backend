@@ -11,6 +11,10 @@ import { AppError } from "../../utils/AppError.js";
 import { generateToken } from "../../utils/jwt.js";
 import { findUserByEmail } from "../auth/auth.repository.js";
 import {
+  maskEmail,
+  recordActivitySafely,
+} from "../activity-history/activity-history.service.js";
+import {
   createEmailChangeToken,
   findValidEmailChangeTokenForUpdate,
   invalidateEmailChangeTokens,
@@ -362,7 +366,46 @@ export async function requestEmailChange(
       expiresInMinutes:
         EMAIL_CHANGE_EXPIRATION_MINUTES,
     });
+
+    await recordActivitySafely(userId, {
+      eventType: "profile.email_verification_sent",
+      category: "PROFILE",
+      status: "SUCCESS",
+      title: "Verificación de email enviada",
+      description:
+        "Se envió el enlace para confirmar el nuevo email.",
+      entityType: "email_change",
+      deduplicationKey:
+        "profile:email-verification-sent:" +
+        hashEmailChangeToken(rawToken),
+      metadata: {
+        newEmailMasked: maskEmail(input.newEmail),
+        provider: "amazon_ses",
+      },
+    });
   } catch (error) {
+    await recordActivitySafely(userId, {
+      eventType: "profile.email_verification_failed",
+      category: "PROFILE",
+      status: "FAILED",
+      title: "No se pudo enviar la verificación",
+      description:
+        "El proveedor de correo rechazó o no pudo entregar la verificación.",
+      entityType: "email_change",
+      deduplicationKey:
+        "profile:email-verification-failed:" +
+        hashEmailChangeToken(rawToken),
+      metadata: {
+        newEmailMasked: maskEmail(input.newEmail),
+        provider: "amazon_ses",
+        reason:
+          error instanceof Error &&
+          error.message.toLowerCase().includes("not verified")
+            ? "recipient_not_verified"
+            : "delivery_failed",
+      },
+    });
+
     console.error(
       "No se pudo enviar el email de cambio de dirección:",
       error instanceof Error
