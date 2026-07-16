@@ -1,8 +1,10 @@
 import { Router } from "express";
 
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { emailAvailabilityRateLimit } from "../../middlewares/email-availability-rate-limit.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import {
+  emailAvailabilityController,
   forgotPasswordController,
   googleLoginController,
   loginController,
@@ -13,6 +15,12 @@ import {
 } from "./auth.controller.js";
 
 export const authRoutes = Router();
+
+authRoutes.post(
+  "/email-availability",
+  emailAvailabilityRateLimit,
+  asyncHandler(emailAvailabilityController)
+);
 
 authRoutes.post(
   "/register",

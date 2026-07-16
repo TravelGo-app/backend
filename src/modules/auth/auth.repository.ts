@@ -22,6 +22,24 @@ const USER_COLUMNS = `
   updated_at
 `;
 
+export async function userEmailExists(
+  client: PoolClient,
+  email: string
+): Promise<boolean> {
+  const result = await client.query<{ exists: boolean }>(
+    `
+    SELECT EXISTS (
+      SELECT 1
+      FROM users
+      WHERE LOWER(email) = LOWER($1)
+    ) AS exists
+    `,
+    [email.trim()]
+  );
+
+  return result.rows[0]?.exists ?? false;
+}
+
 export async function findUserByEmail(
   client: PoolClient,
   email: string

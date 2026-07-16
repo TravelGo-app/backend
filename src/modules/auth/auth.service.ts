@@ -1,5 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import type { PoolClient } from "pg";
+
 import { SUPPORTED_CURRENCIES } from "../../config/currencies.js";
 import { env } from "../../config/env.js";
 import { pool } from "../../db/pool.js";
@@ -23,6 +25,7 @@ import {
   markUserLogin,
   setUserPassword,
   updateUserPassword,
+  userEmailExists,
 } from "./auth.repository.js";
 import {
   createPasswordResetToken,
@@ -31,6 +34,7 @@ import {
   markPasswordResetTokenUsed,
 } from "./password-reset.repository.js";
 import type {
+  EmailAvailabilityInput,
   ForgotPasswordInput,
   LoginInput,
   RegisterInput,
@@ -76,6 +80,44 @@ function buildPasswordResetUrl(
     env.frontendUrl.replace(/\/+$/, "");
 
   return `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+}
+
+export async function checkEmailAvailability(
+  data: EmailAvailabilityInput
+) {
+  let client: PoolClient | null = null;
+
+  try {
+    client = await pool.connect();
+
+    const registered = await userEmailExists(
+      client,
+      data.email
+    );
+
+    return {
+      available: !registered,
+      registered,
+    };
+  } catch (error) {
+    console.error("[auth.email_availability.error]", {
+      name:
+        error instanceof Error
+          ? error.name
+          : "UnknownError",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Error desconocido",
+    });
+
+    throw new AppError(
+      "No se pudo comprobar la disponibilidad del email",
+      503
+    );
+  } finally {
+    client?.release();
+  }
 }
 
 export async function registerUser(
